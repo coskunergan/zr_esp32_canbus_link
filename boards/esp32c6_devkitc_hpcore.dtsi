@@ -1,0 +1,47 @@
+
+#include <zephyr/dt-bindings/pinctrl/esp-pinctrl-common.h>
+#include <dt-bindings/pinctrl/esp32c6-pinctrl.h>
+#include <zephyr/dt-bindings/pinctrl/esp32c6-gpio-sigmap.h>
+
+&pinctrl {
+	uart0_pins: uart0_pins {
+		group1 {
+			pinmux = <UART0_TX_GPIO16>;
+			output-high;
+		};
+
+		group2 {
+			pinmux = <UART0_RX_GPIO17>;
+			bias-pull-up;
+		};
+	};        
+	uart1_pins: uart1_pins {
+		group1 {
+			pinmux = <UART0_TX_GPIO20>;
+			output-high;
+		};
+
+		group2 {
+			pinmux = <UART0_RX_GPIO21>;
+			bias-pull-up;
+		};
+	};      
+	pcf8574_pins: pcf8574_pins {
+    	group1 {
+                pinmux = <I2C0_SDA_GPIO4>,
+                            <I2C0_SCL_GPIO5>;
+                bias-pull-up;
+                drive-open-drain;
+                output-high;
+            };
+    };	
+};
+
+&i2c0 { 
+	status = "okay"; 
+	clock-frequency = <I2C_BITRATE_STANDARD>; 
+	pinctrl-0 = <&pcf8574_pins>; 
+	pinctrl-names = "default"; 
+};
+
+

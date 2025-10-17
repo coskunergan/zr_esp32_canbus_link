@@ -1,0 +1,24 @@
+{
+   "workspaceFolder": {
+   "path": ".",
+   "zephyrproject": "%HOMEPATH%/zephyrproject",
+   "AppUnderDev": "${workspaceRoot}"
+   },
+"bsp": {
+   //"board": "stm32f4_disco",
+   //"board": "nucleo_n657x0_q",
+   //"board": "stm32h735g_disco",
+   //"board": "qmu_cortex_m3",
+   //"board": "esp32c3_devkitc",
+   "board": "esp32c6_devkitc/esp32c6/hpcore",
+ },
+ "app": {
+   "name": "${config:workspaceFolder.AppUnderDev}",
+   "build_dir": "${workspaceFolder}/build",
+   },
+   "files.associations": {
+      "cstdint": "c",
+      "compare": "c",
+      "cstdlib": "c"
+   }
+}

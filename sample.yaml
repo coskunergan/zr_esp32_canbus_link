@@ -1,0 +1,28 @@
+# See doc/develop/test/twister.rst for what is here.
+sample:
+  name: Driver Sample
+common:
+  filter: CONFIG_RUST_SUPPORTED
+  platform_allow:
+    - qemu_cortex_m0
+    - qemu_cortex_m3
+    - qemu_riscv32
+    - qemu_riscv64    
+    - stm32f4_disco
+    - nucleo_n657x0_q
+    - esp32c3_devkitc
+    - esp32c6_devkitc
+tests:
+  sample.basic.drivers:
+    tags:
+    filter: 
+    depends_on:
+    extra_configs:
+      - CONFIG_SAMPLE_LOOPBACK_MODE=y
+      - CONFIG_SAMPLE_CAN_FD_MODE=n    
+    harness:
+    integration_platforms:
+      - stm32f4_disco
+      - nucleo_n657x0_q
+      - esp32c3_devkitc
+      - esp32c6_devkitc
