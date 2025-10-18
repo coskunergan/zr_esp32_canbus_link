@@ -3,19 +3,8 @@
 #include <dt-bindings/pinctrl/esp32c6-pinctrl.h>
 #include <zephyr/dt-bindings/pinctrl/esp32c6-gpio-sigmap.h>
 
-&pinctrl {
+&pinctrl {    
 	uart0_pins: uart0_pins {
-		group1 {
-			pinmux = <UART0_TX_GPIO16>;
-			output-high;
-		};
-
-		group2 {
-			pinmux = <UART0_RX_GPIO17>;
-			bias-pull-up;
-		};
-	};        
-	uart1_pins: uart1_pins {
 		group1 {
 			pinmux = <UART0_TX_GPIO20>;
 			output-high;

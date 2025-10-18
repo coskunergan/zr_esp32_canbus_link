@@ -44,26 +44,13 @@
 };
 
 &uart0 {
-	pinctrl-0 = <&uart0_default>;
+	pinctrl-0 = <&uart0_pins>;
 	pinctrl-names = "default";
 	current-speed = <115200>;
 	status = "okay";
 	modbus0 {
 		compatible = "zephyr,modbus-serial";
 		status = "okay";
-		de-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;	
-	};		
-};
-
-&uart1 {
-	pinctrl-0 = <&uart1_pins>;
-	pinctrl-names = "default";
-	current-speed = <115200>;
-	status = "okay";
-	modbus1 {
-		compatible = "zephyr,modbus-serial";
-		status = "okay";
-		de-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;	
 	};		
 };
 
