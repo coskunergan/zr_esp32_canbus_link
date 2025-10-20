@@ -54,4 +54,17 @@
 	};		
 };
 
+&uart1 {
+	pinctrl-0 = <&uart1_pins>;
+	pinctrl-names = "default";
+	current-speed = <115200>;
+	status = "okay";
+	modbus1 {
+		compatible = "zephyr,modbus-serial";
+		status = "okay";
+	};		
+};
+
+
+
 

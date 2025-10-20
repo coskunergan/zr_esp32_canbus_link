@@ -91,7 +91,7 @@ async fn led_task(spawner: Spawner) {
 //         Timer::after(Duration::from_millis(100)).await;
 //     }
 // }
-//====================================================================================
+// //====================================================================================
 // fn receive_callback(data: &[u8]) {
 //     if let Ok(s) = core::str::from_utf8(data) {
 //         log::info!("Received data ({} byte): {}", data.len(), s);
@@ -116,19 +116,24 @@ extern "C" fn rust_main() {
 
     let mut local_reg = 0x123;
 
-    // let mut can_fd = CanBus::new("canbus0\0");
-    // can_fd.set_data_callback(receive_callback);
+    // let mut canbus = CanBus::new("canbus0\0");
+    // canbus.set_data_callback(receive_callback);
 
-    let modbus = ModbusSlave::new("modbus0\0");
+    let modbus_vcp = ModbusSlave::new("modbus0\0");
+    let modbus = ModbusSlave::new("modbus1\0");
 
     modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
     modbus.mb_add_holding_reg(&mut local_reg, 2);
 
+    modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
+    modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
+    modbus_vcp.mb_add_holding_reg(&mut local_reg, 2);    
+
     let executor = EXECUTOR_MAIN.init(Executor::new());
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
-        //spawner.spawn(canbus_task(can_fd)).unwrap();
+        // spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================
