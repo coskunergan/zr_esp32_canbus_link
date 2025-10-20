@@ -26,6 +26,16 @@
 			bias-pull-up;
 		};
 	};
+	twai0_pins: twai0_pins {
+		group1 {
+			pinmux = <TWAI0_RX_GPIO18>;
+			output-enable;	
+		};
+		group2 {
+			pinmux = <TWAI0_TX_GPIO19>;
+			input-enable;	
+		};
+	};
 	pcf8574_pins: pcf8574_pins {
     	group1 {
                 pinmux = <I2C0_SDA_GPIO4>,

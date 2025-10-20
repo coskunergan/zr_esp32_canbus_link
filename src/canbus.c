@@ -59,7 +59,7 @@ void rx_8_0_thread(void *arg1, void *arg2, void *arg3)
         do
         {
             rem_len = isotp_recv_net(&recv_ctx_8_0, &buf,
-                                     K_MSEC(2000));
+                                     K_MSEC(20));
             if(rem_len < 0)
             {
                 break;

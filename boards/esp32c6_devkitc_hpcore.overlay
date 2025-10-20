@@ -65,6 +65,15 @@
 	};		
 };
 
+&twai0{		
+	pinctrl-0 = <&twai0_pins>;
+	pinctrl-names = "default";
+	label = "canbus0"; 
+	status = "okay";
+	can-transceiver {
+		max-bitrate = <1000000>;
+	};
+};
 
 
 

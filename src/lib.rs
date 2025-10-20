@@ -23,13 +23,13 @@ use zephyr::device::gpio::GpioPin;
 use portable_atomic::{AtomicU16, Ordering};
 //use core::{sync::atomic::AtomicU16, sync::atomic::Ordering};
 
-// use canbus::CanBus;
+use canbus::CanBus;
 use display_io::Display;
 use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
 
 mod button;
-// mod canbus;
+mod canbus;
 mod display_io;
 mod modbus_slave;
 mod pin;
@@ -79,30 +79,26 @@ async fn led_task(spawner: Spawner) {
     }
 }
 //====================================================================================
-// #[embassy_executor::task]
-// async fn canbus_task(can: CanBus) {
-//     loop {
-//         let message = format!(
-//             "BUTTON PRESS:{} COUNTER: {} ",
-//             REGISTER.load(Ordering::SeqCst),
-//             COUNTER.load(Ordering::SeqCst)
-//         );
-//         let _ = can.canbus_isotp_send(message.as_bytes());
-//         Timer::after(Duration::from_millis(100)).await;
-//     }
-// }
-// //====================================================================================
-// fn receive_callback(data: &[u8]) {
-//     if let Ok(s) = core::str::from_utf8(data) {
-//         log::info!("Received data ({} byte): {}", data.len(), s);
-//     } else {
-//         log::info!(
-//             "Received data is not a valid UTF-8 string. Raw data ({} bytes): {:?}",
-//             data.len(),
-//             data
-//         );
-//     }
-// }
+#[embassy_executor::task]
+async fn canbus_task(can: CanBus) {
+    loop {
+        let message = format!("BTN:{}", REGISTER.load(Ordering::SeqCst));
+        let _ = can.canbus_isotp_send(message.as_bytes());
+        Timer::after(Duration::from_millis(1000)).await;
+    }
+}
+//====================================================================================
+fn receive_callback(data: &[u8]) {
+    if let Ok(s) = core::str::from_utf8(data) {
+        log::info!("Received data ({} byte): {}", data.len(), s);
+    } else {
+        log::info!(
+            "Received data is not a valid UTF-8 string. Raw data ({} bytes): {:?}",
+            data.len(),
+            data
+        );
+    }
+}
 //====================================================================================
 #[no_mangle]
 extern "C" fn rust_main() {
@@ -116,8 +112,8 @@ extern "C" fn rust_main() {
 
     let mut local_reg = 0x123;
 
-    // let mut canbus = CanBus::new("canbus0\0");
-    // canbus.set_data_callback(receive_callback);
+    let mut canbus = CanBus::new("canbus0\0");
+    canbus.set_data_callback(receive_callback);
 
     let modbus_vcp = ModbusSlave::new("modbus0\0");
     let modbus = ModbusSlave::new("modbus1\0");
@@ -128,12 +124,12 @@ extern "C" fn rust_main() {
 
     modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
-    modbus_vcp.mb_add_holding_reg(&mut local_reg, 2);    
+    modbus_vcp.mb_add_holding_reg(&mut local_reg, 2);
 
     let executor = EXECUTOR_MAIN.init(Executor::new());
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
-        // spawner.spawn(canbus_task(canbus)).unwrap();
+        spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================
