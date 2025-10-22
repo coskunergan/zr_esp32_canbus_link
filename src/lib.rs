@@ -24,12 +24,14 @@ use portable_atomic::{AtomicU16, Ordering};
 //use core::{sync::atomic::AtomicU16, sync::atomic::Ordering};
 
 use canbus::CanBus;
+use mg::Mongoose;
 use display_io::Display;
 use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
 
 mod button;
 mod canbus;
+mod mg;
 mod display_io;
 mod modbus_slave;
 mod pin;
@@ -111,6 +113,8 @@ extern "C" fn rust_main() {
     ));
 
     let mut local_reg = 0x123;
+
+    let mut mg = Mongoose::new();
 
     let mut canbus = CanBus::new("canbus0\0");
     canbus.set_data_callback(receive_callback);

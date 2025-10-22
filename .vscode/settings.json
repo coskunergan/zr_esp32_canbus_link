@@ -19,6 +19,7 @@
    "files.associations": {
       "cstdint": "c",
       "compare": "c",
-      "cstdlib": "c"
+      "cstdlib": "c",
+      "ctype.h": "c"
    }
 }

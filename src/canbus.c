@@ -136,7 +136,7 @@ int canbus_init(const char *dev_name)
     if(!tid)
     {
         LOG_ERR("ERROR spawning rx thread\n");
-        return 0;
+        return -1;
     }
     k_thread_name_set(tid, "rx_8_0");
 
