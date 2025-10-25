@@ -40,7 +40,7 @@ version = "0.6.2"
 version = "0.4.0"
 # path = "../../embassy/embassy-time"
 # This is board specific.
-features = ["tick-hz-10_000"]
+features = ["tick-hz-1_000"]
 
 [dependencies.critical-section]
 version = "1.2"

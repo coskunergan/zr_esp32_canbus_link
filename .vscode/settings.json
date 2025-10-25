@@ -20,6 +20,7 @@
       "cstdint": "c",
       "compare": "c",
       "cstdlib": "c",
-      "ctype.h": "c"
+      "ctype.h": "c",
+      "mongoose_glue.h": "c"
    }
 }

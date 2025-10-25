@@ -18,6 +18,7 @@ use zephyr::embassy::Executor;
 use embassy_executor::Spawner;
 use static_cell::StaticCell;
 
+use zephyr::raw;
 use zephyr::device::gpio::GpioPin;
 
 use portable_atomic::{AtomicU16, Ordering};
@@ -25,6 +26,7 @@ use portable_atomic::{AtomicU16, Ordering};
 
 use canbus::CanBus;
 use mg::Mongoose;
+use wifi::Wifi;
 use display_io::Display;
 use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
@@ -36,6 +38,7 @@ mod display_io;
 mod modbus_slave;
 mod pin;
 mod usage;
+mod wifi;
 
 static EXECUTOR_MAIN: StaticCell<Executor> = StaticCell::new();
 static RED_LED_PIN: GlobalPin = GlobalPin::new();
@@ -90,6 +93,15 @@ async fn canbus_task(can: CanBus) {
     }
 }
 //====================================================================================
+#[embassy_executor::task]
+async fn mg_task() {
+    let mg = Mongoose::new();
+    loop {
+        Timer::after(Duration::from_millis(1)).await;
+        mg.mg_poll();
+    }
+}
+//====================================================================================
 fn receive_callback(data: &[u8]) {
     if let Ok(s) = core::str::from_utf8(data) {
         log::info!("Received data ({} byte): {}", data.len(), s);
@@ -108,31 +120,36 @@ extern "C" fn rust_main() {
 
     log::info!("Restart!!!\r\n");
 
+    // unsafe {
+    //     raw::k_thread_priority_set(raw::k_current_get(), 5);
+    // }
+
     RED_LED_PIN.init(Pin::new(
         zephyr::devicetree::labels::red_led::get_instance().expect("my_red_led not found!"),
     ));
 
-    let mut local_reg = 0x123;
+    Wifi::wifi_connect();
 
-    let mut mg = Mongoose::new();
+    let mut local_reg = 0x123;    
 
     let mut canbus = CanBus::new("canbus0\0");
     canbus.set_data_callback(receive_callback);
 
-    let modbus_vcp = ModbusSlave::new("modbus0\0");
+    // let modbus_vcp = ModbusSlave::new("modbus0\0");
     let modbus = ModbusSlave::new("modbus1\0");
 
     modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
     modbus.mb_add_holding_reg(&mut local_reg, 2);
 
-    modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
-    modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
-    modbus_vcp.mb_add_holding_reg(&mut local_reg, 2);
+    // modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
+    // modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
+    // modbus_vcp.mb_add_holding_reg(&mut local_reg, 2);
 
     let executor = EXECUTOR_MAIN.init(Executor::new());
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
+        spawner.spawn(mg_task()).unwrap();
         spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }

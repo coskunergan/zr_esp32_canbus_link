@@ -4,6 +4,7 @@
 
 extern "C" {
     fn mg_init() -> i32;    
+    fn mg_poll();    
 }
 
 pub struct Mongoose {
@@ -18,4 +19,7 @@ impl Mongoose {
         }
         Mongoose { _private: () }
     }    
+    pub fn mg_poll(&self) {
+                unsafe { mg_poll() };
+    }
 }
