@@ -16,25 +16,26 @@ use embassy_executor::Executor;
 use zephyr::embassy::Executor;
 
 use embassy_executor::Spawner;
+use embassy_futures::yield_now;
 use static_cell::StaticCell;
 
-use zephyr::raw;
 use zephyr::device::gpio::GpioPin;
+// use zephyr::raw;
 
 use portable_atomic::{AtomicU16, Ordering};
 //use core::{sync::atomic::AtomicU16, sync::atomic::Ordering};
 
 use canbus::CanBus;
-use mg::Mongoose;
-use wifi::Wifi;
 use display_io::Display;
+use mg::Mongoose;
 use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
+use wifi::Wifi;
 
 mod button;
 mod canbus;
-mod mg;
 mod display_io;
+mod mg;
 mod modbus_slave;
 mod pin;
 mod usage;
@@ -97,7 +98,7 @@ async fn canbus_task(can: CanBus) {
 async fn mg_task() {
     let mg = Mongoose::new();
     loop {
-        Timer::after(Duration::from_millis(1)).await;
+        yield_now().await;
         mg.mg_poll();
     }
 }
@@ -130,7 +131,7 @@ extern "C" fn rust_main() {
 
     Wifi::wifi_connect();
 
-    let mut local_reg = 0x123;    
+    let mut local_reg = 0x123;
 
     let mut canbus = CanBus::new("canbus0\0");
     canbus.set_data_callback(receive_callback);

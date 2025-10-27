@@ -3,8 +3,8 @@
 // Coskun ERGAN <coskunergan@gmail.com>
 
 extern "C" {
-    fn mg_init() -> i32;    
-    fn mg_poll();    
+    fn mg_init() -> i32;
+    fn mg_poll();
 }
 
 pub struct Mongoose {
@@ -18,8 +18,8 @@ impl Mongoose {
             panic!("Failed to initialize Mongoose: error {}", ret);
         }
         Mongoose { _private: () }
-    }    
+    }
     pub fn mg_poll(&self) {
-                unsafe { mg_poll() };
+        unsafe { mg_poll() };
     }
 }
