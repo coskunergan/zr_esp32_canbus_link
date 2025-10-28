@@ -68,16 +68,16 @@ async fn led_task(spawner: Spawner) {
         )]
     );
 
-    let display = Display::new();
-    display.set_backlight(1);
+    // let display = Display::new();
+    // display.set_backlight(1);
 
     loop {
-        display.clear();
-        let msg = format!(
-            "REG: {:5}      Coskun Ergan!",
-            REGISTER.load(Ordering::SeqCst)
-        );
-        display.write(msg.as_bytes());
+        // display.clear();
+        // let msg = format!(
+        //     "REG: {:5}      Coskun Ergan!",
+        //     REGISTER.load(Ordering::SeqCst)
+        // );
+        // display.write(msg.as_bytes());
         red_led_pin.toggle();
         COUNTER.fetch_add(1, Ordering::SeqCst);
         log::info!("Endless Loop!");
@@ -151,7 +151,7 @@ extern "C" fn rust_main() {
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
         spawner.spawn(mg_task()).unwrap();
-        spawner.spawn(canbus_task(canbus)).unwrap();
+        // spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================
