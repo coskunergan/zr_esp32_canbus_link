@@ -98,7 +98,8 @@ async fn canbus_task(can: CanBus) {
 async fn mg_task() {
     let mg = Mongoose::new();
     loop {
-        yield_now().await;
+        Timer::after(Duration::from_millis(1)).await;
+        //yield_now().await;
         mg.mg_poll();
     }
 }
