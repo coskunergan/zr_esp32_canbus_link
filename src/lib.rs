@@ -97,10 +97,12 @@ async fn canbus_task(can: CanBus) {
 #[embassy_executor::task]
 async fn mg_task() {
     let mg = Mongoose::new();
+    let red_led_pin = RED_LED_PIN.get();
     loop {
-        Timer::after(Duration::from_millis(1)).await;
+        Timer::after(Duration::from_millis(10)).await;
         //yield_now().await;
         mg.mg_poll();
+        red_led_pin.toggle();        
     }
 }
 //====================================================================================
@@ -152,7 +154,7 @@ extern "C" fn rust_main() {
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
         spawner.spawn(mg_task()).unwrap();
-        // spawner.spawn(canbus_task(canbus)).unwrap();
+        //spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================
