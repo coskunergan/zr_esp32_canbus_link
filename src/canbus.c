@@ -6,8 +6,35 @@
 #include <zephyr/canbus/isotp.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/sys_heap.h>
+#include <zephyr/shell/shell.h>
+#include <stdlib.h> 
 
 LOG_MODULE_REGISTER(canbus, LOG_LEVEL_DBG);
+
+static int cmd_heap_free_estimate(const struct shell *sh, size_t argc, char **argv)
+{
+    size_t step = 1024;
+    size_t total = 0;
+    void *ptrs[64];        
+    int i = 0;
+
+    while (i < 64) {
+        void *p = malloc(step);
+        if (!p) break;      
+        ptrs[i++] = p;
+        total += step;
+    }
+
+    shell_print(sh, "Estimated free heap: ~%u bytes", (unsigned int)total);
+
+    while (i--) free(ptrs[i]);
+
+    return 0;
+}
+
+SHELL_CMD_REGISTER(heapfree, NULL, "Estimate minimal libc heap free space", cmd_heap_free_estimate);
+
 
 const struct isotp_fc_opts fc_opts_8_0 = {.bs = 8, .stmin = 0};
 

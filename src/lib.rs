@@ -20,7 +20,7 @@ use embassy_futures::yield_now;
 use static_cell::StaticCell;
 
 use zephyr::device::gpio::GpioPin;
-// use zephyr::raw;
+use zephyr::raw;
 
 use portable_atomic::{AtomicU16, Ordering};
 //use core::{sync::atomic::AtomicU16, sync::atomic::Ordering};
@@ -124,9 +124,9 @@ extern "C" fn rust_main() {
 
     log::info!("Restart!!!\r\n");
 
-    // unsafe {
-    //     raw::k_thread_priority_set(raw::k_current_get(), 5);
-    // }
+    unsafe {
+        raw::k_thread_priority_set(raw::k_current_get(), 5);
+    }
 
     RED_LED_PIN.init(Pin::new(
         zephyr::devicetree::labels::red_led::get_instance().expect("my_red_led not found!"),

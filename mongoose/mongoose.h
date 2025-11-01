@@ -471,7 +471,7 @@ static inline int mg_mkdir(const char *path, mode_t mode)
 #endif
 
 #if !defined(MG_ENABLE_EPOLL) && defined(__linux__)
-#define MG_ENABLE_EPOLL 0
+#define MG_ENABLE_EPOLL 1
 #elif !defined(MG_ENABLE_POLL)
 #define MG_ENABLE_POLL 1
 #endif
@@ -907,7 +907,7 @@ struct timeval
 #endif
 
 #ifndef MG_ENABLE_POLL
-#define MG_ENABLE_POLL 1
+#define MG_ENABLE_POLL 0
 #endif
 
 #ifndef MG_ENABLE_EPOLL
