@@ -99,7 +99,7 @@ async fn mg_task() {
     let mg = Mongoose::new();
     let red_led_pin = RED_LED_PIN.get();
     loop {
-        Timer::after(Duration::from_millis(10)).await;
+        Timer::after(Duration::from_millis(1)).await;
         //yield_now().await;
         mg.mg_poll();
         red_led_pin.toggle();        
