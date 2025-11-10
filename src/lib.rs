@@ -102,7 +102,7 @@ async fn mg_task() {
         Timer::after(Duration::from_millis(1)).await;
         //yield_now().await;
         mg.mg_poll();
-        red_led_pin.toggle();        
+        red_led_pin.toggle();
     }
 }
 //====================================================================================

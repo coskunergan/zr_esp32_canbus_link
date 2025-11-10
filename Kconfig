@@ -26,6 +26,14 @@ config WIFI_SAMPLE_PSK
 	string "WIFI PSK - Network password key"
 	default "K7Q3SKzKC7QN"
 
+config WIFI_SAMPLE_AP_SSID
+	string "WIFI AP SSID - Network name"
+	default "MY_SSID_AP"
+
+config WIFI_SAMPLE_AP_PSK
+	string "WIFI AP PSK - Network password key"
+	default "password"	
+
 endif # WIFI
 
 source "Kconfig.zephyr"
