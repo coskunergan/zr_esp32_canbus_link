@@ -14,6 +14,10 @@
 };
 
 / { 	
+    chosen {
+        zephyr,uart-mcumgr = &uart1;
+		zephyr,code-partition = &slot0_partition;
+    };	
 	gpios {
 		compatible = "gpio-leds";
 		red_led: red_led {

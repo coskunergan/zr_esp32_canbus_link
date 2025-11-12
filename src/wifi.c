@@ -187,7 +187,6 @@ static int connect_to_wifi(void)
     struct in_addr netmask;
     struct in_addr gateway;
 
-    // Stringleri yapıya dönüştürür (inet_pton Zephyr'de 'net_addr_pton' olabilir)
     if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_ADDR, &ipv4_addr)) {
         LOG_ERR("Hata: Geçersiz IP adresi");
         return -EINVAL;
@@ -231,11 +230,8 @@ void wifi_connect(void)
     net_mgmt_init_event_callback(&cb, wifi_event_handler, NET_EVENT_WIFI_MASK);
     net_mgmt_add_event_callback(&cb);
 
-    //esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
-    /* Get AP interface in AP-STA mode. */
     ap_iface = net_if_get_wifi_sap();
 
-    /* Get STA interface in AP-STA mode. */
     sta_iface = net_if_get_wifi_sta();
 
     connected = 0;

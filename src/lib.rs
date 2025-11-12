@@ -28,7 +28,7 @@ use portable_atomic::{AtomicU16, Ordering};
 use canbus::CanBus;
 use display_io::Display;
 use mg::Mongoose;
-use modbus_slave::ModbusSlave;
+// use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
 use wifi::Wifi;
 
@@ -36,7 +36,7 @@ mod button;
 mod canbus;
 mod display_io;
 mod mg;
-mod modbus_slave;
+// mod modbus_slave;
 mod pin;
 mod usage;
 mod wifi;
@@ -137,15 +137,15 @@ extern "C" fn rust_main() {
 
     let mut local_reg = 0x123;
 
-    let mut canbus = CanBus::new("canbus0\0");
-    canbus.set_data_callback(receive_callback);
+    // let mut canbus = CanBus::new("canbus0\0");
+    // canbus.set_data_callback(receive_callback);
 
     // let modbus_vcp = ModbusSlave::new("modbus0\0");
-    let modbus = ModbusSlave::new("modbus1\0");
+    // let modbus = ModbusSlave::new("modbus1\0");
 
-    modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
-    modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
-    modbus.mb_add_holding_reg(&mut local_reg, 2);
+    // modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
+    // modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
+    // modbus.mb_add_holding_reg(&mut local_reg, 2);
 
     // modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     // modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
