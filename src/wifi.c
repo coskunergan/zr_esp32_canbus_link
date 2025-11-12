@@ -183,6 +183,24 @@ static int connect_to_wifi(void)
         return -EIO;
     }
 
+    struct in_addr ipv4_addr;
+    struct in_addr netmask;
+    struct in_addr gateway;
+
+    // Stringleri yapıya dönüştürür (inet_pton Zephyr'de 'net_addr_pton' olabilir)
+    if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_ADDR, &ipv4_addr)) {
+        LOG_ERR("Hata: Geçersiz IP adresi");
+        return -EINVAL;
+    }
+    if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_NETMASK, &netmask)) {
+        LOG_ERR("Hata: Geçersiz Ağ Maskesi");
+        return -EINVAL;
+    }
+    if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_GW, &gateway)) {
+        LOG_ERR("Hata: Geçersiz Ağ Geçidi");
+        return -EINVAL;
+    }    
+
     sta_config.ssid = (const uint8_t *)CONFIG_WIFI_SAMPLE_SSID;
     sta_config.ssid_length = sizeof(CONFIG_WIFI_SAMPLE_SSID) - 1;
     sta_config.psk = (const uint8_t *)CONFIG_WIFI_SAMPLE_PSK;
@@ -190,6 +208,10 @@ static int connect_to_wifi(void)
     sta_config.security = WIFI_SECURITY_TYPE_PSK;
     sta_config.channel = WIFI_CHANNEL_ANY;
     sta_config.band = WIFI_FREQ_BAND_2_4_GHZ;
+
+    net_if_ipv4_addr_add(sta_iface, &ipv4_addr, NET_ADDR_MANUAL, 0);   
+
+    net_if_ipv4_set_gw(sta_iface, &gateway);    
 
     LOG_INF("Connecting to SSID: %s\n", sta_config.ssid);
 
@@ -206,12 +228,10 @@ static int connect_to_wifi(void)
 
 void wifi_connect(void)
 {
-    int nr_tries = 10;
-    int ret = 0;
-
     net_mgmt_init_event_callback(&cb, wifi_event_handler, NET_EVENT_WIFI_MASK);
     net_mgmt_add_event_callback(&cb);
 
+    //esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     /* Get AP interface in AP-STA mode. */
     ap_iface = net_if_get_wifi_sap();
 

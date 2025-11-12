@@ -96,6 +96,7 @@ async fn canbus_task(can: CanBus) {
 //====================================================================================
 #[embassy_executor::task]
 async fn mg_task() {
+    Timer::after(Duration::from_millis(1000)).await;
     let mg = Mongoose::new();
     let red_led_pin = RED_LED_PIN.get();
     loop {

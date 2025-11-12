@@ -6,6 +6,11 @@
 
 #include "mongoose_glue.h"
 
+void glue_sntp_on_time(uint64_t utc_time_in_milliseconds) {
+  MG_INFO(("UTC time in milliseconds from SNTP: %llu, current time: %llu",
+           utc_time_in_milliseconds, mg_now()));
+}
+
 // Authenticate user/password. Return access level for the authenticated user:
 //   0 - authentication error
 //   1,2,3... - authentication success. Higher levels are more privileged than lower

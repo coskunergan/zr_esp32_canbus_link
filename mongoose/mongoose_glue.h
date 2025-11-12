@@ -21,10 +21,10 @@ extern "C" {
 #define WIZARD_ENABLE_MQTT 0
 #define WIZARD_MQTT_URL ""
 
-#define WIZARD_ENABLE_SNTP 0  // Enable time sync.
+#define WIZARD_ENABLE_SNTP 1  // Enable time sync.
 #define WIZARD_SNTP_TYPE 0    // 0: default Google, 1: DHCP, 2: custom
 #define WIZARD_SNTP_URL "udp://time.google.com:123"  // Custom SNTP server URL
-#define WIZARD_SNTP_INTERVAL_SECONDS 3600            // Frequency of SNTP syncs
+#define WIZARD_SNTP_INTERVAL_SECONDS 15            // Frequency of SNTP syncs
 
 #define WIZARD_DNS_TYPE 0  // 0: default Google, 1: DHCP, 2: custom
 #define WIZARD_DNS_URL "udp://8.8.8.8:53"  // Custom DNS server URL
@@ -86,6 +86,7 @@ void glue_update_state(void);
 
 // Firmware Glue
 
+void glue_sntp_on_time(uint64_t utc_time_in_milliseconds);
 
 int    glue_authenticate(const char *user, const char *pass);
 
