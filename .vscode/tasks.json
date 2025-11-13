@@ -8,7 +8,8 @@
 			"command": "west",
 			"args": [
 				//"-v",
-				"build",				
+				"build",
+				"--sysbuild",				
 				"-p",
 				"auto",
 				"-d",
@@ -27,7 +28,8 @@
 			"group": "build",
 			"command": "west",
 			"args": [
-				"build",				
+				"build",
+				"--sysbuild",				
 				"-p",
 				"always",
 				"-d",

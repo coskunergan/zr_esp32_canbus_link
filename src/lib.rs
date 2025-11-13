@@ -47,6 +47,11 @@ static RED_LED_PIN: GlobalPin = GlobalPin::new();
 static COUNTER: AtomicU16 = AtomicU16::new(0);
 static REGISTER: AtomicU16 = AtomicU16::new(0);
 
+const VERSION_MAJOR: &str = env!("VERSION_MAJOR");
+const VERSION_MINOR: &str = env!("VERSION_MINOR");
+const PATCHLEVEL: &str = env!("PATCHLEVEL");
+const EXTRAVERSION: &str = env!("EXTRAVERSION");
+
 //====================================================================================
 //====================================================================================
 #[embassy_executor::task]
@@ -80,7 +85,13 @@ async fn led_task(spawner: Spawner) {
         // display.write(msg.as_bytes());
         red_led_pin.toggle();
         COUNTER.fetch_add(1, Ordering::SeqCst);
-        log::info!("Endless Loop!");
+        log::info!(
+            "Loop! Version: {}.{}.{} ({})",
+            VERSION_MAJOR,
+            VERSION_MINOR,
+            PATCHLEVEL,
+            EXTRAVERSION
+        );
         let _ = Timer::after(Duration::from_millis(500)).await;
     }
 }

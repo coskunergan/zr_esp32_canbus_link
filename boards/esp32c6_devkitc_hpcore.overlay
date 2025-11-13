@@ -17,13 +17,14 @@
     chosen {
         zephyr,uart-mcumgr = &uart1;
 		zephyr,code-partition = &slot0_partition;
+		zephyr,button0 = &button;
     };	
 	gpios {
 		compatible = "gpio-leds";
 		red_led: red_led {
 			gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
 			label = "Red LED";
-		};
+		};	
 		button: button {
 			label = "User SW1";
 			gpios = <&gpio0 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
@@ -47,37 +48,10 @@
 	};		
 };
 
-&uart0 {
-	pinctrl-0 = <&uart0_pins>;
-	pinctrl-names = "default";
-	current-speed = <115200>;
-	status = "okay";
-	modbus0 {
-		compatible = "zephyr,modbus-serial";
-		status = "okay";
-	};		
-};
 
 &uart1 {
 	pinctrl-0 = <&uart1_pins>;
 	pinctrl-names = "default";
-	current-speed = <115200>;
+	current-speed = <921600>;
 	status = "okay";
-	modbus1 {
-		compatible = "zephyr,modbus-serial";
-		status = "okay";
-	};		
 };
-
-&twai0{		
-	pinctrl-0 = <&twai0_pins>;
-	pinctrl-names = "default";
-	label = "canbus0"; 
-	status = "okay";
-	can-transceiver {
-		max-bitrate = <1000000>;
-	};
-};
-
-
-

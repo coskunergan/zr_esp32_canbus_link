@@ -157,7 +157,6 @@ static int enable_ap_mode(void)
     }
     else
     {
-
         ap_config.security = WIFI_SECURITY_TYPE_PSK;
     }
 
