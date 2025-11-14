@@ -6885,21 +6885,93 @@ bool mg_ota_end(void)
 #line 1 "src/ota_dummy.c"
 #endif
 
-
-
 #if MG_OTA == MG_OTA_NONE
+
+#include <zephyr/kernel.h>
+#include <zephyr/storage/flash_map.h>
+#include <zephyr/dfu/mcuboot.h>
+#include <zephyr/dfu/flash_img.h>
+
+/* Flash context - static olmalı, fonksiyonlar arası paylaşılacak */
+static struct flash_img_context flash_ctx;
+static bool ota_in_progress = false;
+
 bool mg_ota_begin(size_t new_firmware_size)
 {
-    (void) new_firmware_size;
+    int ret;
+
+    /* Eğer devam eden bir OTA varsa iptal et */
+    if (ota_in_progress)
+    {
+        ota_in_progress = false;
+    }
+
+    /* Secondary slot'a (slot1) yazacağız */
+    ret = flash_img_init_id(&flash_ctx, FIXED_PARTITION_ID(slot1_partition));
+    if (ret)
+    {
+        return false;
+    }
+
+    ota_in_progress = true;
+
     return true;
 }
+
 bool mg_ota_write(const void *buf, size_t len)
 {
-    (void) buf, (void) len;
+    int ret;
+
+    if (!ota_in_progress)
+    {
+        return false;
+    }
+
+    if (buf == NULL || len == 0)
+    {
+        return false;
+    }
+
+    /* Flash'a buffered write - son parametre false (henüz flush etme) */
+    ret = flash_img_buffered_write(&flash_ctx, (uint8_t *)buf, len, false);
+    if (ret)
+    {
+        ota_in_progress = false;
+        return false;
+    }
+
     return true;
 }
+
 bool mg_ota_end(void)
 {
+    int ret;
+
+    if (!ota_in_progress)
+    {
+        return false;
+    }
+
+    /* Kalan buffer'ı flush et (son parametre true) */
+    ret = flash_img_buffered_write(&flash_ctx, NULL, 0, true);
+    if (ret)
+    {
+        ota_in_progress = false;
+        return false;
+    }
+
+    /* MCUboot'a yeni image'ı test etmesini söyle */
+    ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
+    if (ret)
+    {
+        ota_in_progress = false;
+        return false;
+    }
+
+    ota_in_progress = false;
+
+    glue_start_reboot("Bootloader Succesfly. Reboot Now!");
+
     return true;
 }
 #endif
@@ -6940,7 +7012,7 @@ bool mg_ota_begin(size_t new_firmware_size)
     }
     return s_ota_success;
 }
-
+//coskun
 bool mg_ota_write(const void *buf, size_t len)
 {
     disable_wdt();

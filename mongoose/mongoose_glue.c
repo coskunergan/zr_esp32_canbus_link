@@ -109,7 +109,16 @@ bool glue_upload_write_file_upload(void *fp, void *buf, size_t len)
 #endif
 }
 
-static struct state s_state = {42, 27, 67, 10, "1.0.1", true, false, 83};
+static struct state s_state = {
+    42,
+    27,
+    67,
+    10,
+    VERSION_MAJOR "." VERSION_MINOR "." PATCHLEVEL "(" EXTRAVERSION ")",
+    true,
+    false,
+    83
+};
 void glue_get_state(struct state *data)
 {
     *data = s_state;  // Sync with your device

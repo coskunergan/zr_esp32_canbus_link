@@ -4,6 +4,7 @@
 
 #include "mongoose.h"
 #include "mongoose_glue.h"
+#include <zephyr/sys/reboot.h>
 
 #if !defined(HTTP_URL) && !defined(HTTPS_URL)
 #if MG_ARCH == MG_ARCH_UNIX || MG_ARCH == MG_ARCH_WIN32
@@ -1243,4 +1244,9 @@ void mongoose_poll(void)
     send_websocket_data();
 #endif
     glue_unlock();
+
+    if(glue_check_reboot())
+    {
+        sys_reboot(SYS_REBOOT_COLD);
+    }
 }
