@@ -9,8 +9,10 @@
    //"board": "nucleo_n657x0_q",
    //"board": "stm32h735g_disco",
    //"board": "qmu_cortex_m3",
-   //"board": "esp32c3_devkitc",
-   "board": "esp32c6_devkitc/esp32c6/hpcore",
+   "board": "esp32c3_devkitc",
+   //"board": "esp32c3_rust",
+   //"board": "esp32c3_devkitm",
+   //"board": "esp32c6_devkitc/esp32c6/hpcore",
  },
  "app": {
    "name": "${config:workspaceFolder.AppUnderDev}",

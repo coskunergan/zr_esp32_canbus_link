@@ -6891,6 +6891,7 @@ bool mg_ota_end(void)
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/dfu/mcuboot.h>
 #include <zephyr/dfu/flash_img.h>
+#include <zephyr/sys/reboot.h>
 
 /* Flash context - static olmalı, fonksiyonlar arası paylaşılacak */
 static struct flash_img_context flash_ctx;
@@ -6898,16 +6899,12 @@ static bool ota_in_progress = false;
 
 bool mg_ota_begin(size_t new_firmware_size)
 {
-    int ret;
-
-    /* Eğer devam eden bir OTA varsa iptal et */
     if (ota_in_progress)
     {
         ota_in_progress = false;
     }
 
-    /* Secondary slot'a (slot1) yazacağız */
-    ret = flash_img_init_id(&flash_ctx, FIXED_PARTITION_ID(slot1_partition));
+    int ret = flash_img_init_id(&flash_ctx, FIXED_PARTITION_ID(slot1_partition));
     if (ret)
     {
         return false;
@@ -6932,7 +6929,6 @@ bool mg_ota_write(const void *buf, size_t len)
         return false;
     }
 
-    /* Flash'a buffered write - son parametre false (henüz flush etme) */
     ret = flash_img_buffered_write(&flash_ctx, (uint8_t *)buf, len, false);
     if (ret)
     {
@@ -6952,7 +6948,6 @@ bool mg_ota_end(void)
         return false;
     }
 
-    /* Kalan buffer'ı flush et (son parametre true) */
     ret = flash_img_buffered_write(&flash_ctx, NULL, 0, true);
     if (ret)
     {
@@ -6960,7 +6955,6 @@ bool mg_ota_end(void)
         return false;
     }
 
-    /* MCUboot'a yeni image'ı test etmesini söyle */
     ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
     if (ret)
     {
@@ -6970,8 +6964,10 @@ bool mg_ota_end(void)
 
     ota_in_progress = false;
 
-    glue_start_reboot("Bootloader Succesfly. Reboot Now!");
+    MG_DEBUG(("Bootloader Succesfly. Reboot Now!"));
 
+    sys_reboot(1);
+    
     return true;
 }
 #endif

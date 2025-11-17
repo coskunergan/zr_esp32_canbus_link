@@ -431,8 +431,8 @@ static void upload_handler(struct mg_connection *c, int ev, void *ev_data)
                                      : c->recv.len;  // Last write can be unaligned
         bool ok = aligned > 0 ? us->fn_write(us->fp, c->recv.buf, aligned) : true;
         us->received += aligned;
-        MG_DEBUG(("%lu chunk: %lu/%lu, %lu/%lu, ok: %d", c->id, aligned,
-                  c->recv.len, us->received, us->expected, ok));
+        // MG_DEBUG(("%lu chunk: %lu/%lu, %lu/%lu, ok: %d", c->id, aligned,
+        //           c->recv.len, us->received, us->expected, ok));
         mg_iobuf_del(&c->recv, 0, aligned);  // Delete received data
         if (ok == false)
         {

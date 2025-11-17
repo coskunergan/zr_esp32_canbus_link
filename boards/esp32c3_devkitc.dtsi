@@ -4,6 +4,26 @@
 #include <zephyr/dt-bindings/pinctrl/esp32c3-gpio-sigmap.h>
 
 &pinctrl {
+    uart0_pins: uart0_pins {
+		group1 {
+			pinmux = <UART0_TX_GPIO21>;
+			output-high;
+		};
+		group2 {
+			pinmux = <UART0_RX_GPIO20>;
+			bias-pull-up;
+		};
+	};
+	uart1_pins: uart1_pins {
+		group1 {
+			pinmux = <UART1_TX_GPIO18>;
+			output-high;
+		};
+		group2 {
+			pinmux = <UART1_RX_GPIO19>;
+			bias-pull-up;
+		};
+	};
 	pcf8574_pins: pcf8574_pins {
     	group1 {
                 pinmux = <I2C0_SDA_GPIO4>,

@@ -74,7 +74,7 @@ bool glue_ota_end_firmware_update(void *context)
 }
 bool glue_ota_write_firmware_update(void *context, void *buf, size_t len)
 {
-    MG_DEBUG(("ctx: %p %p/%lu", context, buf, len));
+    //MG_DEBUG(("ctx: %p %p/%lu", context, buf, len));
     return mg_ota_write(buf, len);
 }
 
