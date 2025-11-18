@@ -55,6 +55,7 @@ const VERSION_MINOR: &str = env!("VERSION_MINOR");
 const PATCHLEVEL: &str = env!("PATCHLEVEL");
 const EXTRAVERSION: &str = env!("EXTRAVERSION");
 
+#[repr(C)]
 pub struct Leds {
     pub led1: bool,
     pub led2: bool,
@@ -138,14 +139,14 @@ async fn led_task(spawner: Spawner) {
     }
 }
 //====================================================================================
-// #[embassy_executor::task]
-// async fn canbus_task(can: CanBus) {
-//     loop {
-//         let message = format!("BTN:{}", REGISTER.load(Ordering::SeqCst));
-//         let _ = can.canbus_isotp_send(message.as_bytes());
-//         Timer::after(Duration::from_millis(1000)).await;
-//     }
-// }
+#[embassy_executor::task]
+async fn canbus_task(can: CanBus) {
+    loop {
+        let message = format!("BTN:{}", REGISTER.load(Ordering::SeqCst));
+        let _ = can.canbus_isotp_send(message.as_bytes());
+        Timer::after(Duration::from_millis(1000)).await;
+    }
+}
 //====================================================================================
 #[embassy_executor::task]
 async fn mg_task() {
@@ -205,15 +206,15 @@ extern "C" fn rust_main() {
 
     let mut local_reg = 0x123;
 
-    // let mut canbus = CanBus::new("canbus0\0");
-    // canbus.set_data_callback(receive_callback);
+    let mut canbus = CanBus::new("canbus0\0");
+    canbus.set_data_callback(receive_callback);
 
     // let modbus_vcp = ModbusSlave::new("modbus0\0");
-    // let modbus = ModbusSlave::new("modbus1\0");
+    let modbus = ModbusSlave::new("modbus1\0");
 
-    // modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
-    // modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
-    // modbus.mb_add_holding_reg(&mut local_reg, 2);
+    modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
+    modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
+    modbus.mb_add_holding_reg(&mut local_reg, 2);
 
     // modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     // modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
@@ -223,7 +224,7 @@ extern "C" fn rust_main() {
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
         spawner.spawn(mg_task()).unwrap();
-        // spawner.spawn(canbus_task(canbus)).unwrap();
+        spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================

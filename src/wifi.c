@@ -186,18 +186,21 @@ static int connect_to_wifi(void)
     struct in_addr netmask;
     struct in_addr gateway;
 
-    if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_ADDR, &ipv4_addr)) {
+    if(net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_ADDR, &ipv4_addr))
+    {
         LOG_ERR("Hata: Geçersiz IP adresi");
         return -EINVAL;
     }
-    if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_NETMASK, &netmask)) {
+    if(net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_NETMASK, &netmask))
+    {
         LOG_ERR("Hata: Geçersiz Ağ Maskesi");
         return -EINVAL;
     }
-    if (net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_GW, &gateway)) {
+    if(net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_GW, &gateway))
+    {
         LOG_ERR("Hata: Geçersiz Ağ Geçidi");
         return -EINVAL;
-    }    
+    }
 
     sta_config.ssid = (const uint8_t *)CONFIG_WIFI_SAMPLE_SSID;
     sta_config.ssid_length = sizeof(CONFIG_WIFI_SAMPLE_SSID) - 1;
@@ -207,19 +210,26 @@ static int connect_to_wifi(void)
     sta_config.channel = WIFI_CHANNEL_ANY;
     sta_config.band = WIFI_FREQ_BAND_2_4_GHZ;
 
-    net_if_ipv4_addr_add(sta_iface, &ipv4_addr, NET_ADDR_MANUAL, 0);   
+    net_if_ipv4_addr_add(sta_iface, &ipv4_addr, NET_ADDR_MANUAL, 0);
 
-    net_if_ipv4_set_gw(sta_iface, &gateway);    
+    net_if_ipv4_set_gw(sta_iface, &gateway);
 
     LOG_INF("Connecting to SSID: %s\n", sta_config.ssid);
 
-    int ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, sta_iface, &sta_config,
-                       sizeof(struct wifi_connect_req_params));
-    if(ret)
+    int nr_tries = 10;
+    int ret;
+    while(nr_tries-- > 0)
     {
-        LOG_ERR("Unable to Connect to (%s)", CONFIG_WIFI_SAMPLE_SSID);
-    }
+        ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, sta_iface, &sta_config,
+                       sizeof(struct wifi_connect_req_params));
+        if(ret == 0)
+        {
+            break;
+        }
 
+        LOG_INF("Connect request failed %d. Waiting iface be up...", ret);
+        k_msleep(500);
+    }
     return ret;
 }
 
@@ -243,3 +253,4 @@ void wifi_connect(void)
         k_msleep(100);
     }
 }
+
