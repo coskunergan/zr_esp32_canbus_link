@@ -6,9 +6,10 @@
 
 #include "mongoose_glue.h"
 
-void glue_sntp_on_time(uint64_t utc_time_in_milliseconds) {
-  MG_INFO(("UTC time in milliseconds from SNTP: %llu, current time: %llu",
-           utc_time_in_milliseconds, mg_now()));
+void glue_sntp_on_time(uint64_t utc_time_in_milliseconds)
+{
+    MG_INFO(("UTC time in milliseconds from SNTP: %llu, current time: %llu",
+             utc_time_in_milliseconds, mg_now()));
 }
 
 // Authenticate user/password. Return access level for the authenticated user:
@@ -109,7 +110,8 @@ bool glue_upload_write_file_upload(void *fp, void *buf, size_t len)
 #endif
 }
 
-static struct state s_state = {
+static struct state s_state =
+{
     42,
     27,
     67,
@@ -121,8 +123,19 @@ static struct state s_state = {
 };
 void glue_get_state(struct state *data)
 {
-    *data = s_state;  // Sync with your device
+    *data = s_state;
 }
+
+void glue_set_temperature(int new_temp)
+{
+    s_state.temperature = new_temp;
+}
+
+void glue_set_humidity(int new_humi)
+{
+    s_state.humidity = new_humi;
+}
+
 
 static struct leds s_leds = {false, true, false};
 void glue_get_leds(struct leds *data)

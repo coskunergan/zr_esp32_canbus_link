@@ -6967,7 +6967,7 @@ bool mg_ota_end(void)
     MG_DEBUG(("Bootloader Succesfly. Reboot Now!"));
 
     sys_reboot(1);
-    
+
     return true;
 }
 #endif

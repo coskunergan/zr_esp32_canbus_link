@@ -10,10 +10,15 @@
 
 LOG_MODULE_REGISTER(auxdisplay, LOG_LEVEL_DBG);
 
-static const struct device *const display_dev = DEVICE_DT_GET(DT_NODELABEL(auxdisplay_0));
+static const struct device *const display_dev = DEVICE_DT_GET_OR_NULL(DT_NODELABEL(auxdisplay_0));
 
 int display_init()
 {
+    if(display_dev == NULL)
+    {
+        LOG_ERR("Auxdisplay device is not a device.");
+        return -EINVAL;
+    }
     if(!device_is_ready(display_dev))
     {
         LOG_ERR("Auxdisplay device is not ready.");

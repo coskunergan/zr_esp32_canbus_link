@@ -1,33 +1,33 @@
 
-#include "esp32c6_devkitc_hpcore.dtsi"
-
-&i2c0 { 
-	status = "okay"; 
-	clock-frequency = <I2C_BITRATE_STANDARD>; 
-	aux_display_gpio: pcf8574@27 {
-		compatible = "nxp,pcf857x";
-		reg = <0x27>;
-		gpio-controller;
-		ngpios = <8>;
-		#gpio-cells = <2>;
-	};		
-};
+#include <zephyr/dt-bindings/pinctrl/esp-pinctrl-common.h>
+#include <dt-bindings/pinctrl/esp32c6-pinctrl.h>
+#include <zephyr/dt-bindings/pinctrl/esp32c6-gpio-sigmap.h>
 
 / { 	
-    chosen {       
-		zephyr,code-partition = &slot0_partition;
-    };	
-	gpios {
+	leds {
 		compatible = "gpio-leds";
 		red_led: red_led {
 			gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;
 			label = "Red LED";
 		};
+		green_led: green_led {
+			gpios = <&gpio0 8 GPIO_ACTIVE_HIGH>;
+			label = "Green LED";
+		};
+		blue_led: blue_led {
+			gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
+			label = "Blue LED";
+		};
+	};
+	
+	buttons {
+		compatible = "gpio-leds";
 		button: button {
 			label = "User SW1";
 			gpios = <&gpio0 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
-		};		
-	};	
+		};
+	};		
+
 	auxdisplay_0: hd44780 {
 		compatible = "hit,hd44780";
 		columns = <16>;
@@ -44,6 +44,70 @@
 				<&aux_display_gpio 6 (GPIO_ACTIVE_HIGH)>,
 				<&aux_display_gpio 7 (GPIO_ACTIVE_HIGH)>;
 	};		
+};
+
+&pinctrl {    
+	uart0_pins: uart0_pins {
+		group1 {
+			pinmux = <UART0_TX_GPIO16>;
+			output-high;
+		};
+
+		group2 {
+			pinmux = <UART0_RX_GPIO17>;
+			bias-pull-up;
+		};
+	};
+	uart1_pins: uart1_pins {
+		group1 {
+			pinmux = <UART1_TX_GPIO20>;
+			output-high;
+		};
+
+		group2 {
+			pinmux = <UART1_RX_GPIO21>;
+			bias-pull-up;
+		};
+	};
+	twai0_pins: twai0_pins {
+		group1 {
+			pinmux = <TWAI0_RX_GPIO18>;
+			output-enable;	
+		};
+		group2 {
+			pinmux = <TWAI0_TX_GPIO19>;
+			input-enable;	
+		};
+	};
+	pcf8574_pins: pcf8574_pins {
+    	group1 {
+                pinmux = <I2C0_SDA_GPIO4>,
+                            <I2C0_SCL_GPIO5>;
+                bias-pull-up;
+                drive-open-drain;
+                output-high;
+            };
+    };	
+};
+
+&i2c0 { 
+	status = "okay"; 
+	pinctrl-0 = <&pcf8574_pins>; 
+	clock-frequency = <I2C_BITRATE_STANDARD>; 
+	pinctrl-names = "default"; 
+   	sht21: sht21@40 {
+        compatible = "sensirion,sht21";
+        reg = <0x40>;
+		label = "sht21";
+        status = "okay";
+    };		
+	aux_display_gpio: pcf8574@27 {
+		compatible = "nxp,pcf857x";
+		reg = <0x27>;
+		gpio-controller;
+		ngpios = <8>;
+		#gpio-cells = <2>;
+	};				
 };
 
 &uart0 {

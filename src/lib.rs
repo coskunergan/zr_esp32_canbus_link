@@ -16,7 +16,6 @@ use embassy_executor::Executor;
 use zephyr::embassy::Executor;
 
 use embassy_executor::Spawner;
-use embassy_futures::yield_now;
 use static_cell::StaticCell;
 
 use zephyr::device::gpio::GpioPin;
@@ -30,6 +29,7 @@ use display_io::Display;
 use mg::Mongoose;
 use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
+use sht21::Sht21;
 use wifi::Wifi;
 
 mod button;
@@ -38,11 +38,14 @@ mod display_io;
 mod mg;
 mod modbus_slave;
 mod pin;
+mod sht21;
 mod usage;
 mod wifi;
 
 static EXECUTOR_MAIN: StaticCell<Executor> = StaticCell::new();
 static RED_LED_PIN: GlobalPin = GlobalPin::new();
+static GREEN_LED_PIN: GlobalPin = GlobalPin::new();
+static BLUE_LED_PIN: GlobalPin = GlobalPin::new();
 
 static COUNTER: AtomicU16 = AtomicU16::new(0);
 static REGISTER: AtomicU16 = AtomicU16::new(0);
@@ -52,12 +55,40 @@ const VERSION_MINOR: &str = env!("VERSION_MINOR");
 const PATCHLEVEL: &str = env!("PATCHLEVEL");
 const EXTRAVERSION: &str = env!("EXTRAVERSION");
 
+pub struct Leds {
+    pub led1: bool,
+    pub led2: bool,
+    pub led3: bool,
+}
+
+extern "C" {
+    fn glue_set_temperature(new_temp: i32);
+    fn glue_set_humidity(new_humi: i32);
+    fn glue_get_leds(data: *mut Leds);
+}
+
+pub fn set_temperature(temp: i32) {
+    unsafe {
+        glue_set_temperature(temp);
+    }
+}
+
+pub fn set_humidity(temp: i32) {
+    unsafe {
+        glue_set_humidity(temp);
+    }
+}
+
+pub fn get_leds(led: *mut Leds) {
+    unsafe {
+        glue_get_leds(led);
+    }
+}
+
 //====================================================================================
 //====================================================================================
 #[embassy_executor::task]
 async fn led_task(spawner: Spawner) {
-    let red_led_pin = RED_LED_PIN.get();
-
     let button = zephyr::devicetree::labels::button::get_instance().unwrap();
 
     declare_buttons!(
@@ -67,23 +98,34 @@ async fn led_task(spawner: Spawner) {
             || {
                 zephyr::printk!("Button Pressed!\n");
                 REGISTER.fetch_add(1, Ordering::SeqCst);
-                red_led_pin.toggle();
             },
             Duration::from_millis(10)
         )]
     );
 
+    let sensor = Sht21::new().expect("SHT21 not start.");
+
     let display = Display::new();
     display.set_backlight(1);
 
     loop {
-        display.clear();
-        let msg = format!(
-            "REG: {:5}      Coskun Ergan!",
-            REGISTER.load(Ordering::SeqCst)
-        );
-        display.write(msg.as_bytes());
-        red_led_pin.toggle();
+        match sensor.read_data() {
+            Ok((temp, hum)) => {
+                log::info!("Temperature: {:.2}°C | Humidity: {:.2}%RH", temp, hum);
+                set_temperature(temp as i32);
+                set_humidity(hum as i32);
+                display.clear();
+                let msg = format!("Tempera: {:2.2} CHumidity: {:2.1} %", temp, hum);
+                display.write(msg.as_bytes());
+            }
+            Err(e) => {
+                log::info!("Read error! : {:?}", e);
+                display.clear();
+                let msg = format!("Read Error!");
+                display.write(msg.as_bytes());
+            }
+        }
+
         COUNTER.fetch_add(1, Ordering::SeqCst);
         log::info!(
             "Loop! Version: {}.{}.{} ({})",
@@ -92,7 +134,7 @@ async fn led_task(spawner: Spawner) {
             PATCHLEVEL,
             EXTRAVERSION
         );
-        let _ = Timer::after(Duration::from_millis(500)).await;
+        let _ = Timer::after(Duration::from_millis(1000)).await;
     }
 }
 //====================================================================================
@@ -110,10 +152,20 @@ async fn mg_task() {
     Timer::after(Duration::from_millis(1000)).await;
     let mg = Mongoose::new();
     let red_led_pin = RED_LED_PIN.get();
+    let green_led_pin = GREEN_LED_PIN.get();
+    let blue_led_pin = BLUE_LED_PIN.get();
+    let mut state = Leds {
+        led1: false,
+        led2: false,
+        led3: false,
+    };
     loop {
         Timer::after(Duration::from_millis(1)).await;
         mg.mg_poll();
-        red_led_pin.toggle();
+        get_leds(&mut state as *mut Leds);
+        red_led_pin.set(state.led1);
+        green_led_pin.set(state.led2);
+        blue_led_pin.set(state.led3);
     }
 }
 //====================================================================================
@@ -141,6 +193,12 @@ extern "C" fn rust_main() {
 
     RED_LED_PIN.init(Pin::new(
         zephyr::devicetree::labels::red_led::get_instance().expect("my_red_led not found!"),
+    ));
+    GREEN_LED_PIN.init(Pin::new(
+        zephyr::devicetree::labels::green_led::get_instance().expect("my_green_led not found!"),
+    ));
+    BLUE_LED_PIN.init(Pin::new(
+        zephyr::devicetree::labels::blue_led::get_instance().expect("my_blue_led not found!"),
     ));
 
     Wifi::wifi_connect();
