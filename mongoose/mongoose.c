@@ -7043,7 +7043,7 @@ bool mg_ota_end_stm32(void)
     else
     {
         MG_ERROR(("STM32 Flashing FAIL.."));
-    }    
+    }
 
     return true;
 }
