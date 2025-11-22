@@ -79,6 +79,23 @@ bool glue_ota_write_firmware_update(void *context, void *buf, size_t len)
     return mg_ota_write(buf, len);
 }
 
+void *glue_ota_begin_firmware_update_stm32(char *file_name, size_t total_size)
+{
+    bool ok = mg_ota_begin(total_size);
+    MG_DEBUG(("%s size %lu, ok: %d", file_name, total_size, ok));
+    return ok ? (void *) 1 : NULL;
+}
+bool glue_ota_end_firmware_update_stm32(void *context)
+{
+    mg_timer_add(&g_mgr, 500, 0, (void (*)(void *))(void *) mg_ota_end_stm32, context);
+    return true;
+}
+bool glue_ota_write_firmware_update_stm32(void *context, void *buf, size_t len)
+{
+    //MG_DEBUG(("ctx: %p %p/%lu", context, buf, len));
+    return mg_ota_write(buf, len);
+}
+
 void *glue_upload_open_file_upload(char *file_name, size_t total_size)
 {
     char path[128], *p = NULL;

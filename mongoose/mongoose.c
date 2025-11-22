@@ -6892,6 +6892,7 @@ bool mg_ota_end(void)
 #include <zephyr/dfu/mcuboot.h>
 #include <zephyr/dfu/flash_img.h>
 #include <zephyr/sys/reboot.h>
+#include "stm32_flashing.h"
 
 static struct flash_img_context flash_ctx;
 static bool ota_in_progress = false;
@@ -6992,14 +6993,44 @@ bool mg_ota_end(void)
         return false;
     }
 
-    // ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
-    // if (ret)
-    // {
-    //     ota_in_progress = false;
-    //     return false;
-    // }
+    ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
+    if (ret)
+    {
+        ota_in_progress = false;
+        return false;
+    }
 
-    // sys_reboot(1);
+    sys_reboot(1);
+
+    return true;
+}
+
+bool mg_ota_end_stm32(void)
+{
+    int ret;
+
+    if (!ota_in_progress)
+    {
+        return false;
+    }
+
+    ret = flash_img_buffered_write(&flash_ctx, NULL, 0, true);
+    if (ret)
+    {
+        ota_in_progress = false;
+        return false;
+    }
+
+    if(boot_write_img_confirmed() == 0)
+    {
+        MG_DEBUG((">>>>>>>>>>>>>>Download IMG Succesfly<<<<<<<<<<<<<<<"));
+    }
+    else
+    {
+        MG_ERROR(("Download IMG FAIL..."));
+        ota_in_progress = false;
+        return false;
+    }
 
     ret = stm32_flashing_start();
 

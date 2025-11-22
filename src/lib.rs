@@ -66,7 +66,6 @@ extern "C" {
     fn glue_set_temperature(new_temp: i32);
     fn glue_set_humidity(new_humi: i32);
     fn glue_get_leds(data: *mut Leds);
-    fn stm32_flashing_start() -> i32;
 }
 
 pub fn set_temperature(temp: i32) {
@@ -137,13 +136,6 @@ async fn led_task(spawner: Spawner) {
             EXTRAVERSION
         );
         let _ = Timer::after(Duration::from_millis(1000)).await;
-
-        if REGISTER.load(Ordering::SeqCst) % 2 == 0 {
-            REGISTER.fetch_add(1, Ordering::SeqCst);
-            unsafe {
-                stm32_flashing_start();
-            }
-        }
     }
 }
 //====================================================================================

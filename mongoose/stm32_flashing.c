@@ -260,7 +260,6 @@ static int stm32_verify_firmware(uint32_t fw_size)
     {
         uint32_t chunk_size = MIN(WRITE_CHUNK_SIZE, fw_size - offset);
 
-        /* Partition'dan oku */
         ret = flash_area_read(fa, offset + TLV_IMG_HEADER_SIZE, partition_buffer, chunk_size);
         if(ret < 0)
         {
@@ -269,7 +268,6 @@ static int stm32_verify_firmware(uint32_t fw_size)
             return ret;
         }
 
-        /* STM32'den oku */
         ret = stm32_read_memory(stm32_address, stm32_buffer, chunk_size);
         if(ret < 0)
         {
@@ -278,7 +276,6 @@ static int stm32_verify_firmware(uint32_t fw_size)
             return ret;
         }
 
-        /* Karşılaştır */
         for(uint32_t i = 0; i < chunk_size; i++)
         {
             if(partition_buffer[i] != stm32_buffer[i])
@@ -292,7 +289,6 @@ static int stm32_verify_firmware(uint32_t fw_size)
         offset += chunk_size;
         stm32_address += chunk_size;
 
-        /* İlerleme takibi */
         if(offset - last_log_offset >= 1024 * 5)
         {
             uint32_t percent = (offset * 100) / fw_size;
@@ -329,7 +325,6 @@ static int stm32_write_firmware(void)
         return -1;
     }
 
-    /* Write Memory komutu gönder: 0x31 + ~0x31 */
     uart_poll_out(UART_DEV, 0x44);
     uart_poll_out(UART_DEV, 0xBB);
 
@@ -351,7 +346,6 @@ static int stm32_write_firmware(void)
         return -EIO;
     }
 
-    /* Partition aç */
     const struct flash_area *fa;
     int ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
     if(ret < 0)
@@ -360,7 +354,6 @@ static int stm32_write_firmware(void)
         return ret;
     }
 
-    /* Yazma buffer'ı */
     uint8_t buffer[WRITE_CHUNK_SIZE];
     uint32_t offset = 0;
     uint32_t stm32_address = STM32_FLASH_BASE;
@@ -369,10 +362,8 @@ static int stm32_write_firmware(void)
 
     while(offset < fw_size)
     {
-        /* Chunk boyutunu hesapla */
         uint32_t chunk_size = MIN(WRITE_CHUNK_SIZE, fw_size - offset);
 
-        /* Partition'dan oku */
         ret = flash_area_read(fa, offset + TLV_IMG_HEADER_SIZE, buffer, chunk_size);
         if(ret < 0)
         {
@@ -381,7 +372,6 @@ static int stm32_write_firmware(void)
             return ret;
         }
 
-        /* STM32'ye yaz */
         ret = stm32_write_memory(stm32_address, buffer, chunk_size);
         if(ret < 0)
         {
@@ -390,12 +380,10 @@ static int stm32_write_firmware(void)
             return ret;
         }
 
-        /* İlerleme takibi */
         offset += chunk_size;
         stm32_address += chunk_size;
         total_written += chunk_size;
 
-        /* Her 5KB'da log bas */
         if(offset - last_log_offset >= 1024 * 5)
         {
             uint32_t percent = (offset * 100) / fw_size;

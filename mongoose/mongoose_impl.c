@@ -184,6 +184,7 @@ struct apihandler_action s_apihandler_reboot = {{"reboot", "action", false, 3, 7
 struct apihandler_action s_apihandler_reformat = {{"reformat", "action", false, 3, 7, 0UL}, glue_check_reformat, glue_start_reformat};
 struct apihandler_action s_apihandler_save_event = {{"save_event", "action", false, 3, 7, 0UL}, glue_check_save_event, glue_start_save_event};
 struct apihandler_ota s_apihandler_firmware_update = {{"firmware_update", "ota", false, 3, 7, 0UL}, glue_ota_begin_firmware_update, glue_ota_end_firmware_update, glue_ota_write_firmware_update};
+struct apihandler_ota s_apihandler_firmware_update_stm32 = {{"firmware_update_stm32", "ota", false, 3, 7, 0UL}, glue_ota_begin_firmware_update_stm32, glue_ota_end_firmware_update_stm32, glue_ota_write_firmware_update_stm32};
 struct apihandler_upload s_apihandler_file_upload = {{"file_upload", "upload", false, 3, 7, 0UL}, glue_upload_open_file_upload, glue_upload_close_file_upload, glue_upload_write_file_upload};
 struct apihandler_data s_apihandler_state = {{"state", "data", true, 0, 0, 0UL}, s_state_attributes, sizeof(struct state), (void (*)(void *)) glue_get_state, NULL};
 struct apihandler_data s_apihandler_leds = {{"leds", "data", false, 3, 3, 0UL}, s_leds_attributes, sizeof(struct leds), (void (*)(void *)) glue_get_leds, (void (*)(void *)) glue_set_leds};
@@ -199,15 +200,16 @@ static struct apihandler *s_apihandlers[] =
         (struct apihandler *) &s_apihandler_reformat,
             (struct apihandler *) &s_apihandler_save_event,
                 (struct apihandler *) &s_apihandler_firmware_update,
-                    (struct apihandler *) &s_apihandler_file_upload,
-                        (struct apihandler *) &s_apihandler_state,
-                            (struct apihandler *) &s_apihandler_leds,
-                                (struct apihandler *) &s_apihandler_network_settings,
-                                    (struct apihandler *) &s_apihandler_settings,
-                                        (struct apihandler *) &s_apihandler_security,
-                                            (struct apihandler *) &s_apihandler_loglevels,
-                                                (struct apihandler *) &s_apihandler_events
-                                                };
+                    (struct apihandler *) &s_apihandler_firmware_update_stm32,
+                        (struct apihandler *) &s_apihandler_file_upload,
+                            (struct apihandler *) &s_apihandler_state,
+                                (struct apihandler *) &s_apihandler_leds,
+                                    (struct apihandler *) &s_apihandler_network_settings,
+                                        (struct apihandler *) &s_apihandler_settings,
+                                            (struct apihandler *) &s_apihandler_security,
+                                                (struct apihandler *) &s_apihandler_loglevels,
+                                                    (struct apihandler *) &s_apihandler_events
+                                                    };
 
 static struct apihandler *get_api_handler(struct mg_str name)
 {

@@ -103,6 +103,10 @@ void *glue_ota_begin_firmware_update(char *file_name, size_t total_size);
 bool glue_ota_end_firmware_update(void *context);
 bool glue_ota_write_firmware_update(void *context, void *buf, size_t len);
 
+void *glue_ota_begin_firmware_update_stm32(char *file_name, size_t total_size);
+bool glue_ota_end_firmware_update_stm32(void *context);
+bool glue_ota_write_firmware_update_stm32(void *context, void *buf, size_t len);
+
 void *glue_upload_open_file_upload(char *file_name, size_t total_size);
 bool glue_upload_close_file_upload(void *context);
 bool glue_upload_write_file_upload(void *context, void *buf, size_t len);

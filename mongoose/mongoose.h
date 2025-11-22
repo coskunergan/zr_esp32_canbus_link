@@ -3035,8 +3035,7 @@ void mg_rpc_list(struct mg_rpc_req *r);
 bool mg_ota_begin(size_t new_firmware_size);     // Start writing
 bool mg_ota_write(const void *buf, size_t len);  // Write chunk, aligned to 1k
 bool mg_ota_end(void);                           // Stop writing
-
-
+bool mg_ota_end_stm32(void);                     // Stop writing
 
 #if MG_OTA != MG_OTA_NONE && MG_OTA != MG_OTA_CUSTOM
 
