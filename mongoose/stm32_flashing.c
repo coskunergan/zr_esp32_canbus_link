@@ -47,7 +47,7 @@ static uint8_t calculate_checksum(const uint8_t *data, uint16_t len)
 
 static int wait_ack(int timeout_ms)
 {
-    uint8_t ack;
+    uint8_t ack = 0xff;
     int64_t start = k_uptime_get();
 
     while(k_uptime_get() - start < timeout_ms)
@@ -63,10 +63,12 @@ static int wait_ack(int timeout_ms)
                 LOG_ERR("NACK alındı!");
                 return -EIO;
             }
+            LOG_ERR("ACK : %x", ack);
         }
         k_usleep(500);
     }
     LOG_ERR("ACK timeout!");
+
     return -ETIMEDOUT;
 }
 
@@ -101,6 +103,52 @@ static int send_data(const uint8_t *data, uint32_t len)
     uart_poll_out(UART_DEV, checksum);
 
     return wait_ack(500);
+}
+
+static int stm32_read_memory(uint32_t address, uint8_t *data, uint32_t len)
+{
+    if(len > 256 || len == 0)
+    {
+        return -EINVAL;
+    }
+    uart_poll_out(UART_DEV, 0x11);
+    uart_poll_out(UART_DEV, 0xEE);
+
+    if(wait_ack(500) < 0)
+    {
+        LOG_ERR("Read command ACK failed");
+        return -EIO;
+    }
+
+    if(send_address(address) < 0)
+    {
+        LOG_ERR("Address send failed");
+        return -EIO;
+    }
+
+    uint8_t len_byte = len - 1;
+    uart_poll_out(UART_DEV, len_byte);
+    uart_poll_out(UART_DEV, ~len_byte);
+
+    if(wait_ack(500) < 0)
+    {
+        LOG_ERR("Read length ACK failed");
+        return -EIO;
+    }
+
+    for(uint32_t i = 0; i < len; i++)
+    {
+        int64_t start = k_uptime_get();
+        while(k_uptime_get() - start < 500)
+        {
+            if(uart_poll_in(UART_DEV, &data[i]) == 0)
+            {
+                break;
+            }
+            k_usleep(100);
+        }
+    }
+    return 0;
 }
 
 static int stm32_write_memory(uint32_t address, const uint8_t *data, uint32_t len)
@@ -177,7 +225,7 @@ size_t get_mcuboot_img_payload_size()
     ret = flash_area_read(fa, magic_offset, header_buf, HEADER_READ_SIZE);
     flash_area_close(fa);
 
-    LOG_HEXDUMP_INF(header_buf, HEADER_READ_SIZE, "Header Buffer");
+    // LOG_HEXDUMP_INF(header_buf, HEADER_READ_SIZE, "Header Buffer");
 
     if(ret != 0)
     {
@@ -187,6 +235,84 @@ size_t get_mcuboot_img_payload_size()
     firmware_len = GET_LE32(&header_buf[IMG_SIZE_OFFSET]);
 
     return (size_t)firmware_len;
+}
+
+static int stm32_verify_firmware(uint32_t fw_size)
+{
+    LOG_INF("Firmware doğrulaması başlıyor...");
+
+    const struct flash_area *fa;
+    int ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
+    if(ret < 0)
+    {
+        LOG_ERR("Partition açma başarısız: %d", ret);
+        return ret;
+    }
+
+    uint8_t partition_buffer[WRITE_CHUNK_SIZE];
+    uint8_t stm32_buffer[WRITE_CHUNK_SIZE];
+    uint32_t offset = 0;
+    uint32_t stm32_address = STM32_FLASH_BASE;
+    uint32_t last_log_offset = 0;
+    uint32_t mismatch_count = 0;
+
+    while(offset < fw_size)
+    {
+        uint32_t chunk_size = MIN(WRITE_CHUNK_SIZE, fw_size - offset);
+
+        /* Partition'dan oku */
+        ret = flash_area_read(fa, offset + TLV_IMG_HEADER_SIZE, partition_buffer, chunk_size);
+        if(ret < 0)
+        {
+            LOG_ERR("Partition okuma başarısız (offset: %u): %d", offset, ret);
+            flash_area_close(fa);
+            return ret;
+        }
+
+        /* STM32'den oku */
+        ret = stm32_read_memory(stm32_address, stm32_buffer, chunk_size);
+        if(ret < 0)
+        {
+            LOG_ERR("STM32 okuma başarısız (adres: 0x%08X): %d", stm32_address, ret);
+            flash_area_close(fa);
+            return ret;
+        }
+
+        /* Karşılaştır */
+        for(uint32_t i = 0; i < chunk_size; i++)
+        {
+            if(partition_buffer[i] != stm32_buffer[i])
+            {
+                mismatch_count++;
+                LOG_WRN("Veri uyuşmazlığı - Adres: 0x%08X, Beklenen: 0x%02X, Okunan: 0x%02X",
+                        stm32_address + i, partition_buffer[i], stm32_buffer[i]);
+            }
+        }
+
+        offset += chunk_size;
+        stm32_address += chunk_size;
+
+        /* İlerleme takibi */
+        if(offset - last_log_offset >= 1024 * 5)
+        {
+            uint32_t percent = (offset * 100) / fw_size;
+            LOG_INF("Doğrulama: %u%% (%u/%u bytes)", percent, offset, fw_size);
+            last_log_offset = offset;
+        }
+    }
+
+    flash_area_close(fa);
+
+    if(mismatch_count == 0)
+    {
+        LOG_INF("✓ Doğrulama başarılı! Hiçbir veri uyuşmazlığı yok.");
+        return 0;
+    }
+    else
+    {
+        LOG_ERR("✗ Doğrulama başarısız! %u byte uyuşmazlık bulundu.", mismatch_count);
+        return -1;
+    }
 }
 
 static int stm32_write_firmware(void)
@@ -269,7 +395,7 @@ static int stm32_write_firmware(void)
         stm32_address += chunk_size;
         total_written += chunk_size;
 
-        /* Her 1KB'da log bas */
+        /* Her 5KB'da log bas */
         if(offset - last_log_offset >= 1024 * 5)
         {
             uint32_t percent = (offset * 100) / fw_size;
@@ -390,6 +516,16 @@ int stm32_flashing_start(void)
         stm32_exit_bootloader();
         return ret;
     }
+
+    LOG_INF("Yazma işlemi bitti, doğrulama başlıyor...");
+    ret = stm32_verify_firmware(get_mcuboot_img_payload_size());
+    if(ret < 0)
+    {
+        LOG_ERR("Doğrulama başarısız!");
+        stm32_exit_bootloader();
+        return ret;
+    }
+
     stm32_exit_bootloader();
     LOG_WRN("=== ✓ Programlama Başarılı! ===");
 

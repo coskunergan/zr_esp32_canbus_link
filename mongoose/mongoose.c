@@ -6893,8 +6893,6 @@ bool mg_ota_end(void)
 #include <zephyr/dfu/flash_img.h>
 #include <zephyr/sys/reboot.h>
 
-/* Flash context - static olmalı, fonksiyonlar arası paylaşılacak */
-static struct flash_img_context ctx_no_id;
 static struct flash_img_context flash_ctx;
 static bool ota_in_progress = false;
 
@@ -6990,6 +6988,7 @@ bool mg_ota_end(void)
     else
     {
         MG_ERROR(("Download IMG FAIL..."));
+        ota_in_progress = false;
         return false;
     }
 
@@ -7000,19 +6999,7 @@ bool mg_ota_end(void)
     //     return false;
     // }
 
-    // uint8_t header_buf[1024];
-    // img_mgmt_read(2, 0, header_buf, 1024);
-    // mg_hexdump(header_buf, (size_t) 1024);
-
-    // size_t ota_size = 1024; // toplam yazdığın uzunluk
-    // uint8_t *buf = malloc(ota_size);
-
-    // const struct flash_area *fa;
-    // flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
-    // flash_area_read(fa, 0, buf, ota_size);
-    // flash_area_close(fa);
-
-    // mg_hexdump(buf, (size_t) 1024);
+    // sys_reboot(1);
 
     ret = stm32_flashing_start();
 
@@ -7025,9 +7012,7 @@ bool mg_ota_end(void)
     else
     {
         MG_ERROR(("STM32 Flashing FAIL.."));
-    }
-
-    // sys_reboot(1);
+    }    
 
     return true;
 }
