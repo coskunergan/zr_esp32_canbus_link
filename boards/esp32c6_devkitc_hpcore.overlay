@@ -4,6 +4,9 @@
 #include <zephyr/dt-bindings/pinctrl/esp32c6-gpio-sigmap.h>
 
 / { 	
+	aliases {
+        uart1 = &uart1;
+    };
 	leds {
 		compatible = "gpio-leds";
 		red_led: red_led {
@@ -19,7 +22,20 @@
 			label = "Blue LED";
 		};
 	};
-	
+	boot0-gpio {
+		compatible = "gpio-leds";
+		boot0_pin: boot0_pin {
+			gpios = <&gpio0 22 GPIO_ACTIVE_HIGH>;
+			label = "BOOT0 PIN";
+		};	
+	};
+	nrst-gpio {
+		compatible = "gpio-leds";			
+		nrst_pin: nrst_pin {
+			gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;
+			label = "NRST_PIN";
+		};		
+	};	
 	buttons {
 		compatible = "gpio-leds";
 		button: button {
@@ -125,6 +141,7 @@
 	pinctrl-0 = <&uart1_pins>;
 	pinctrl-names = "default";
 	current-speed = <115200>;
+	parity = "even";
 	status = "okay";
 	modbus1 {
 		compatible = "zephyr,modbus-serial";

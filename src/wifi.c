@@ -23,7 +23,7 @@ static struct net_if *sta_iface;
 static struct wifi_connect_req_params ap_config;
 static struct wifi_connect_req_params sta_config;
 
-static int connected;
+static bool connected;
 
 static struct net_mgmt_event_callback cb;
 
@@ -51,12 +51,22 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt
     {
         case NET_EVENT_WIFI_CONNECT_RESULT:
         {
-            connected = 1;
-            LOG_INF("Connected to %s", CONFIG_WIFI_SAMPLE_SSID);
+            const struct wifi_status *status = (const struct wifi_status *)cb->info;
+            if(status->status == 0)
+            {
+                LOG_INF("WiFi connected successfully! to %s", CONFIG_WIFI_SAMPLE_SSID);
+                connected = true;
+            }
+            else
+            {
+                LOG_ERR("WiFi connection failed, status code: %d", status->status);
+                connected = false;
+            }
             break;
         }
         case NET_EVENT_WIFI_DISCONNECT_RESULT:
         {
+            connected = false;
             LOG_INF("Disconnected from %s", CONFIG_WIFI_SAMPLE_SSID);
             break;
         }
@@ -216,21 +226,43 @@ static int connect_to_wifi(void)
 
     LOG_INF("Connecting to SSID: %s\n", sta_config.ssid);
 
-    int nr_tries = 10;
+    int retries = 8;
     int ret;
-    while(nr_tries-- > 0)
+
+    connected = false;
+
+    while(retries--)
     {
-        ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, sta_iface, &sta_config,
-                       sizeof(struct wifi_connect_req_params));
-        if(ret == 0)
+        LOG_INF("WiFi connect attempt %d...", 8 - retries);
+
+        ret = net_mgmt(NET_REQUEST_WIFI_CONNECT, sta_iface,
+                       &sta_config, sizeof(sta_config));
+
+        if(ret != 0)
         {
-            break;
+            LOG_ERR("net_mgmt() failed: %d", ret);
+            k_sleep(K_MSEC(2000));
+            continue;
         }
 
-        LOG_INF("Connect request failed %d. Waiting iface be up...", ret);
-        k_msleep(500);
+        int timeout = 40;  // 20 saniye (500 ms x 40)
+        while(timeout-- && !connected)
+        {
+            k_msleep(500);
+        }
+
+        if(connected)
+        {
+            LOG_INF("WiFi successfully connected with static IP!");
+            return 0;
+        }
+
+        LOG_WRN("Connection failed or timed out, retrying in 3s...");
+        k_sleep(K_MSEC(3000));
     }
-    return ret;
+    LOG_ERR("All WiFi connection attempts failed!");
+
+    return -EINVAL;
 }
 
 
@@ -243,14 +275,7 @@ void wifi_connect(void)
 
     sta_iface = net_if_get_wifi_sta();
 
-    connected = 0;
-
     //enable_ap_mode();
     connect_to_wifi();
-
-    while(connected == 0)
-    {
-        k_msleep(100);
-    }
 }
 

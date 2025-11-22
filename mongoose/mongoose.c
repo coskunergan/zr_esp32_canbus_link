@@ -6894,8 +6894,31 @@ bool mg_ota_end(void)
 #include <zephyr/sys/reboot.h>
 
 /* Flash context - static olmalı, fonksiyonlar arası paylaşılacak */
+static struct flash_img_context ctx_no_id;
 static struct flash_img_context flash_ctx;
 static bool ota_in_progress = false;
+
+int erase_slot1(void)
+{
+    const struct flash_area *fa;
+    int ret;
+
+    ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
+    if (ret)
+    {
+        printk("slot1 open error: %d\n", ret);
+        return ret;
+    }
+
+    ret = flash_area_erase(fa, 0, fa->fa_size);
+    if (ret)
+    {
+        printk("erase error: %d\n", ret);
+    }
+
+    flash_area_close(fa);
+    return ret;
+}
 
 bool mg_ota_begin(size_t new_firmware_size)
 {
@@ -6903,8 +6926,13 @@ bool mg_ota_begin(size_t new_firmware_size)
     {
         ota_in_progress = false;
     }
+    int ret = erase_slot1();
+    if (ret)
+    {
+        return false;
+    }
 
-    int ret = flash_img_init_id(&flash_ctx, FIXED_PARTITION_ID(slot1_partition));
+    ret = flash_img_init_id(&flash_ctx, FIXED_PARTITION_ID(slot1_partition));
     if (ret)
     {
         return false;
@@ -6955,18 +6983,51 @@ bool mg_ota_end(void)
         return false;
     }
 
-    ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
-    if (ret)
+    if(boot_write_img_confirmed() == 0)
     {
-        ota_in_progress = false;
+        MG_DEBUG((">>>>>>>>>>>>>>Download IMG Succesfly<<<<<<<<<<<<<<<"));
+    }
+    else
+    {
+        MG_ERROR(("Download IMG FAIL..."));
         return false;
     }
 
+    // ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
+    // if (ret)
+    // {
+    //     ota_in_progress = false;
+    //     return false;
+    // }
+
+    // uint8_t header_buf[1024];
+    // img_mgmt_read(2, 0, header_buf, 1024);
+    // mg_hexdump(header_buf, (size_t) 1024);
+
+    // size_t ota_size = 1024; // toplam yazdığın uzunluk
+    // uint8_t *buf = malloc(ota_size);
+
+    // const struct flash_area *fa;
+    // flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
+    // flash_area_read(fa, 0, buf, ota_size);
+    // flash_area_close(fa);
+
+    // mg_hexdump(buf, (size_t) 1024);
+
+    ret = stm32_flashing_start();
+
     ota_in_progress = false;
 
-    MG_DEBUG(("Bootloader Succesfly. Reboot Now!"));
+    if(ret == 0)
+    {
+        MG_DEBUG(("STM32 Flashing Succesfly."));
+    }
+    else
+    {
+        MG_ERROR(("STM32 Flashing FAIL.."));
+    }
 
-    sys_reboot(1);
+    // sys_reboot(1);
 
     return true;
 }

@@ -66,6 +66,7 @@ extern "C" {
     fn glue_set_temperature(new_temp: i32);
     fn glue_set_humidity(new_humi: i32);
     fn glue_get_leds(data: *mut Leds);
+    fn stm32_flashing_start() -> i32;
 }
 
 pub fn set_temperature(temp: i32) {
@@ -136,6 +137,13 @@ async fn led_task(spawner: Spawner) {
             EXTRAVERSION
         );
         let _ = Timer::after(Duration::from_millis(1000)).await;
+
+        if REGISTER.load(Ordering::SeqCst) % 2 == 0 {
+            REGISTER.fetch_add(1, Ordering::SeqCst);
+            unsafe {
+                stm32_flashing_start();
+            }
+        }
     }
 }
 //====================================================================================
@@ -210,11 +218,11 @@ extern "C" fn rust_main() {
     canbus.set_data_callback(receive_callback);
 
     // let modbus_vcp = ModbusSlave::new("modbus0\0");
-    let modbus = ModbusSlave::new("modbus1\0");
+    // let modbus = ModbusSlave::new("modbus1\0");
 
-    modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
-    modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
-    modbus.mb_add_holding_reg(&mut local_reg, 2);
+    // modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
+    // modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
+    // modbus.mb_add_holding_reg(&mut local_reg, 2);
 
     // modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     // modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
@@ -224,7 +232,7 @@ extern "C" fn rust_main() {
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
         spawner.spawn(mg_task()).unwrap();
-        spawner.spawn(canbus_task(canbus)).unwrap();
+        //spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================
