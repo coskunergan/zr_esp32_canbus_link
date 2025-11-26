@@ -6966,6 +6966,85 @@ bool mg_ota_write(const void *buf, size_t len)
     return true;
 }
 
+#define IMAGE_TLV_INFO_MAGIC  0x6908
+#define IMAGE_TLV_PROT_TYPE   0xA0
+
+//generate cmd;
+//imgtool create  --align 4 --version "1.0.0" --header-size 0x200 --slot-size 0x200000 --pad-header --custom-tlv 0xA0 "STM32" --key root-rsa-2048.pem stm32_binary.bin stm32_binary.signed.bin
+static bool check_device_tlv_is_correct(const char* str)
+{
+    const struct flash_area *fa;
+    int ret, magic_offset;
+    uint8_t hdr[32];
+
+    ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
+    if (ret) return false;
+
+    magic_offset = check_magic();
+    if (magic_offset < 0)
+    {
+        flash_area_close(fa);
+        return false;
+    }
+
+    ret = flash_area_read(fa, magic_offset, hdr, 32);
+    if (ret)
+    {
+        flash_area_close(fa);
+        return false;
+    }
+
+    uint16_t hdr_size       = GET_LE16(&hdr[0x08]);
+    uint32_t payload_size   = GET_LE32(&hdr[0x0C]);
+    uint16_t prot_tlv_size  = GET_LE16(&hdr[0x0A]);
+
+    MG_INFO(("hdr size: %d", hdr_size));
+    MG_INFO(("payload size: %d", payload_size));
+    MG_INFO(("prot_tlv_size: %d", prot_tlv_size));
+
+    uint32_t tlv_offset = magic_offset + hdr_size + payload_size;
+
+    uint16_t tlv_magic;
+    flash_area_read(fa, tlv_offset, &tlv_magic, 2);
+    if (tlv_magic != IMAGE_TLV_INFO_MAGIC)
+    {
+        MG_ERROR(("Protected TLV magic yok: 0x%04x (offset 0x%x)", tlv_magic, tlv_offset));
+        flash_area_close(fa);
+        return false;
+    }
+
+    uint32_t pos = tlv_offset + 4;
+    uint32_t end = tlv_offset + 4 + prot_tlv_size;
+
+    MG_INFO(("pos: %d", pos));
+    MG_INFO(("end: %d", end));
+
+    while (pos + 4 <= end)
+    {
+        uint8_t type;
+        uint16_t len;
+        flash_area_read(fa, pos + 0, &type, 1);
+        flash_area_read(fa, pos + 2, &len, 2);
+
+        if (type == IMAGE_TLV_PROT_TYPE && len == strlen(str))
+        {
+            char tag[6] = {0};
+            flash_area_read(fa, pos + 4, tag, 5);
+            MG_INFO(("Cihaz etiketi: %s", tag));
+
+            bool correct = (strcmp(tag, str) == 0);
+
+            flash_area_close(fa);
+            return correct;
+        }
+        pos += 4 + len;
+    }
+
+    MG_ERROR(("0xA0 TLV bulunamadı"));
+    flash_area_close(fa);
+    return false;
+}
+
 bool mg_ota_end(void)
 {
     int ret;
@@ -6984,7 +7063,7 @@ bool mg_ota_end(void)
 
     if(boot_write_img_confirmed() == 0)
     {
-        MG_DEBUG((">>>>>>>>>>>>>>Download IMG Succesfly<<<<<<<<<<<<<<<"));
+        MG_INFO((">>>>>>>>>>>>>>Download IMG Succesfly<<<<<<<<<<<<<<<"));
     }
     else
     {
@@ -6993,56 +7072,29 @@ bool mg_ota_end(void)
         return false;
     }
 
-    ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
-    if (ret)
+    if(check_device_tlv_is_correct("STM32"))
     {
+        MG_INFO((">>>>>>>>>>>>>>STM32 IMG Succesfly<<<<<<<<<<<<<<<"));
+        ret = stm32_flashing_start();
         ota_in_progress = false;
-        return false;
-    }
-
-    sys_reboot(1);
-
-    return true;
-}
-
-bool mg_ota_end_stm32(void)
-{
-    int ret;
-
-    if (!ota_in_progress)
-    {
-        return false;
-    }
-
-    ret = flash_img_buffered_write(&flash_ctx, NULL, 0, true);
-    if (ret)
-    {
-        ota_in_progress = false;
-        return false;
-    }
-
-    if(boot_write_img_confirmed() == 0)
-    {
-        MG_DEBUG((">>>>>>>>>>>>>>Download IMG Succesfly<<<<<<<<<<<<<<<"));
+        if(ret == 0)
+        {
+            MG_INFO(("STM32 Flashing Succesfly."));
+        }
+        else
+        {
+            MG_ERROR(("STM32 Flashing FAIL.."));
+        }
     }
     else
     {
-        MG_ERROR(("Download IMG FAIL..."));
+        ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
         ota_in_progress = false;
-        return false;
-    }
-
-    ret = stm32_flashing_start();
-
-    ota_in_progress = false;
-
-    if(ret == 0)
-    {
-        MG_DEBUG(("STM32 Flashing Succesfly."));
-    }
-    else
-    {
-        MG_ERROR(("STM32 Flashing FAIL.."));
+        if (ret)
+        {
+            return false;
+        }
+        sys_reboot(1);
     }
 
     return true;

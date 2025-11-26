@@ -87,7 +87,7 @@ void *glue_ota_begin_firmware_update_stm32(char *file_name, size_t total_size)
 }
 bool glue_ota_end_firmware_update_stm32(void *context)
 {
-    mg_timer_add(&g_mgr, 500, 0, (void (*)(void *))(void *) mg_ota_end_stm32, context);
+    mg_timer_add(&g_mgr, 500, 0, (void (*)(void *))(void *) mg_ota_end, context);
     return true;
 }
 bool glue_ota_write_firmware_update_stm32(void *context, void *buf, size_t len)

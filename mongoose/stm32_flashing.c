@@ -10,6 +10,7 @@
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/uart.h>
+#include "stm32_flashing.h"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
@@ -20,20 +21,6 @@ LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 static const struct gpio_dt_spec boot0 = GPIO_DT_SPEC_GET(BOOT0_NODE, gpios);
 static const struct gpio_dt_spec nrst  = GPIO_DT_SPEC_GET(NRST_NODE,  gpios);
 static const struct device *uart_dev = DEVICE_DT_GET(DT_NODELABEL(uart1));
-
-#define STM32_FLASH_BASE    0x08000000
-#define WRITE_CHUNK_SIZE    256
-#define MAX_FLASH_SIZE      1500000
-#define TLV_IMG_HEADER_SIZE 0x200
-
-#define IMG_SIZE_OFFSET     12
-#define HEADER_READ_SIZE    64
-
-#define GET_LE32(p) \
-    (((uint32_t)((p)[0])) | \
-     ((uint32_t)((p)[1]) << 8) | \
-     ((uint32_t)((p)[2]) << 16) | \
-     ((uint32_t)((p)[3]) << 24))
 
 static uint8_t calculate_checksum(const uint8_t *data, uint16_t len)
 {
