@@ -7603,6 +7603,9 @@ bool mg_ota_end(void)
 #include <zephyr/dfu/mcuboot.h>
 #include <zephyr/dfu/flash_img.h>
 #include <zephyr/sys/reboot.h>
+#ifdef CONFIG_MODBUS_SERIAL
+#include <zephyr/modbus/modbus.h>
+#endif
 #include "stm32_flashing.h"
 
 static struct flash_img_context flash_ctx;
@@ -7774,7 +7777,7 @@ bool mg_ota_end(void)
 
     if(boot_write_img_confirmed() == 0)
     {
-        MG_INFO((">>>>>>>>>>>>>>Download IMG Succesfly<<<<<<<<<<<<<<<"));
+        MG_INFO((">>>>>>>>>>Download IMG Succesfly<<<<<<<<<<<"));
     }
     else
     {
@@ -7785,17 +7788,24 @@ bool mg_ota_end(void)
 
     if(check_device_tlv_is_correct("STM32"))
     {
-        MG_INFO((">>>>>>>>>>>>>>STM32 IMG Succesfly<<<<<<<<<<<<<<<"));
+        MG_INFO(("STM32 IMG Downloaded."));
+#ifdef CONFIG_MODBUS_SERIAL  
+        extern uint8_t client_iface;
+        modbus_disable(client_iface);
+#endif
         ret = stm32_flashing_start();
         ota_in_progress = false;
         if(ret == 0)
         {
-            MG_INFO(("STM32 Flashing Succesfly."));
+            MG_INFO((">>>>>>>STM32 Flashing Succesfly.<<<<<<<<<"));
         }
         else
         {
-            MG_ERROR(("STM32 Flashing FAIL.."));
+            MG_ERROR((">>>>>>>>STM32 Flashing FAIL..<<<<<<<<<"));
         }
+#ifdef CONFIG_MODBUS_SERIAL
+        sys_reboot(1);
+#endif
     }
     else
     {

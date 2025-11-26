@@ -11,6 +11,7 @@
 LOG_MODULE_REGISTER(modbus_slave, LOG_LEVEL_DBG);
 
 const uint16_t drv_slave_id = 1;
+uint8_t client_iface;
 
 #define NUMBER_OF_MB_ITEM 64
 
@@ -85,7 +86,7 @@ const static struct modbus_iface_param client_param =
 
 int mb_slave_init(const char *dev)
 {
-    const int client_iface = modbus_iface_get_by_name(dev);
+    client_iface = modbus_iface_get_by_name(dev);
     if(modbus_init_server(client_iface, client_param))
     {
         LOG_ERR("Modbus Server initialization failed! client_iface: %d", client_iface);
@@ -93,6 +94,11 @@ int mb_slave_init(const char *dev)
     }
     LOG_INF("Modbus Server initialization ok. client_iface: %d", client_iface);
     return 0;
+}
+
+int mb_slave_disable()
+{    
+    return modbus_disable(client_iface);
 }
 
 int mb_add_holding_reg(uint16_t * reg, const uint16_t addr)

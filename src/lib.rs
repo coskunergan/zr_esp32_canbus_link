@@ -210,11 +210,11 @@ extern "C" fn rust_main() {
     canbus.set_data_callback(receive_callback);
 
     // let modbus_vcp = ModbusSlave::new("modbus0\0");
-    // let modbus = ModbusSlave::new("modbus1\0");
+    let modbus = ModbusSlave::new("modbus1\0");
 
-    // modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
-    // modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
-    // modbus.mb_add_holding_reg(&mut local_reg, 2);
+    modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
+    modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
+    modbus.mb_add_holding_reg(&mut local_reg, 2);
 
     // modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     // modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
@@ -224,7 +224,7 @@ extern "C" fn rust_main() {
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
         spawner.spawn(mg_task()).unwrap();
-        //spawner.spawn(canbus_task(canbus)).unwrap();
+        spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================
