@@ -12,6 +12,7 @@ void glue_sntp_on_time(uint64_t utc_time_in_milliseconds)
              utc_time_in_milliseconds, mg_now()));
 }
 
+
 // Authenticate user/password. Return access level for the authenticated user:
 //   0 - authentication error
 //   1,2,3... - authentication success. Higher levels are more privileged than lower
@@ -74,23 +75,6 @@ bool glue_ota_end_firmware_update(void *context)
     return true;
 }
 bool glue_ota_write_firmware_update(void *context, void *buf, size_t len)
-{
-    //MG_DEBUG(("ctx: %p %p/%lu", context, buf, len));
-    return mg_ota_write(buf, len);
-}
-
-void *glue_ota_begin_firmware_update_stm32(char *file_name, size_t total_size)
-{
-    bool ok = mg_ota_begin(total_size);
-    MG_DEBUG(("%s size %lu, ok: %d", file_name, total_size, ok));
-    return ok ? (void *) 1 : NULL;
-}
-bool glue_ota_end_firmware_update_stm32(void *context)
-{
-    mg_timer_add(&g_mgr, 500, 0, (void (*)(void *))(void *) mg_ota_end, context);
-    return true;
-}
-bool glue_ota_write_firmware_update_stm32(void *context, void *buf, size_t len)
 {
     //MG_DEBUG(("ctx: %p %p/%lu", context, buf, len));
     return mg_ota_write(buf, len);
@@ -174,7 +158,7 @@ void glue_set_network_settings(struct network_settings *data)
     s_network_settings = *data; // Sync with your device
 }
 
-static struct settings s_settings = {"edit & save me", "info", 123.12345, 17, true};
+static struct settings s_settings = {"edit & save me", 2, 123.12345, 17, true};
 void glue_get_settings(struct settings *data)
 {
     *data = s_settings;  // Sync with your device
@@ -194,18 +178,24 @@ void glue_set_security(struct security *data)
     s_security = *data; // Sync with your device
 }
 
-void glue_reply_loglevels(struct mg_connection *c, struct mg_http_message *hm)
+static struct events s_events[] =
 {
-    const char *headers = "Cache-Control: no-cache\r\n" "Content-Type: application/json\r\n";
-    const char *value = "[\"disabled\",\"error\",\"info\",\"debug\",\"verbose\"]";
-    (void) hm;
-    mg_http_reply(c, 200, headers, "%s\n", value);
+    {0, 1738653279, 2, 2, "Coskun ERGAN"},
+    {0, 1738653279, 2, 2, "Some event"},
+    {0, 1738653279, 2, 2, "Some event"},
+};
+bool glue_get_events(struct events *data, size_t i, struct mg_str params)
+{
+    size_t array_size = sizeof(s_events) / sizeof(s_events[0]);
+    if(i >= array_size) return false;
+    *data = s_events[i];  // Sync with your device
+    (void) params;
+    return true;
 }
-void glue_reply_events(struct mg_connection *c, struct mg_http_message *hm)
+void glue_set_events(struct events *data, size_t i, struct mg_str params)
 {
-    const char *headers = "Cache-Control: no-cache\r\n" "Content-Type: application/json\r\n";
-    const char *value = "[{\"id\":0,\"timestamp\":1738653279,\"message\":\"Coskun ERGAN\",\"priority\":2,\"status\":\"active\",\"notes\":\"some notes\"},{\"id\":1,\"timestamp\":12395,\"message\":\"Something succeeded\",\"priority\":1,\"status\":\"processed\",\"notes\":\"notes 2\"}]";
-    (void) hm;
-    mg_http_reply(c, 200, headers, "%s\n", value);
+    size_t array_size = sizeof(s_events) / sizeof(s_events[0]);
+    if(i < array_size) s_events[i] = *data;  // Sync with your device
+    (void) params;
 }
 

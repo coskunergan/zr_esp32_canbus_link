@@ -43,17 +43,19 @@
   "4hf5Gx17YJkq5/z3k6ogPDPpoAYWIw1/sw==\n"                             \
   "-----END EC PRIVATE KEY-----\n"
 
-typedef void (*mongoose_data_func_t)(void *);
-typedef bool (*mongoose_action_checker_t)(void);
-typedef void (*mongoose_action_starter_t)(struct mg_str);
-typedef void *(*mongoose_ota_opener_t)(char *, size_t);
-typedef bool (*mongoose_ota_closer_t)(void *);
-typedef bool (*mongoose_ota_writer_t)(void *, void *, size_t);
-typedef void (*mongoose_custom_reply_t)(struct mg_connection *,
-                                        struct mg_http_message *);
-typedef void *(*mongoose_file_opener_t)(char *, size_t);
-typedef void (*mongoose_file_server_t)(struct mg_connection *,
-                                       struct mg_http_message *hm, char *);
+typedef void (*data_func_t)(void *);
+typedef bool (*array_get_func_t)(void *, size_t, struct mg_str);
+typedef void (*array_set_func_t)(void *, size_t, struct mg_str);
+typedef bool (*action_check_func_t)(void);
+typedef void (*action_start_func_t)(struct mg_str);
+typedef void *(*ota_open_func_t)(char *, size_t);
+typedef bool (*ota_close_func_t)(void *);
+typedef bool (*ota_write_func_t)(void *, void *, size_t);
+typedef void (*custom_reply_func_t)(struct mg_connection *,
+                                    struct mg_http_message *);
+typedef void *(*file_open_func_t)(char *, size_t);
+typedef void (*file_serve_func_t)(struct mg_connection *,
+                                  struct mg_http_message *hm, char *);
 
 struct mg_mgr g_mgr;  // Mongoose event manager
 
@@ -91,31 +93,31 @@ struct apihandler_custom
 struct apihandler_upload
 {
     struct apihandler common;
-    void *(*opener)(char *, size_t);         // Open function (OTA and upload)
-    bool (*closer)(void *);                  // Closer function (OTA and upload)
-    bool (*writer)(void *, void *, size_t);  // Writer function (OTA and upload)
+    ota_open_func_t opener;   // Open function (OTA and upload)
+    ota_close_func_t closer;  // Closer function (OTA and upload)
+    ota_write_func_t writer;  // Writer function (OTA and upload)
 };
 
 struct apihandler_file
 {
     struct apihandler common;
-    mongoose_file_opener_t opener;
-    mongoose_file_server_t server;
+    file_open_func_t opener;
+    file_serve_func_t server;
 };
 
 struct apihandler_ota
 {
     struct apihandler common;
-    void *(*opener)(char *, size_t);         // Open function (OTA and upload)
-    bool (*closer)(void *);                  // Closer function (OTA and upload)
-    bool (*writer)(void *, void *, size_t);  // Writer function (OTA and upload)
+    ota_open_func_t opener;   // Open function (OTA and upload)
+    ota_close_func_t closer;  // Closer function (OTA and upload)
+    ota_write_func_t writer;  // Writer function (OTA and upload)
 };
 
 struct apihandler_action
 {
     struct apihandler common;
-    bool (*checker)(void);           // Checker function for actions
-    void (*starter)(struct mg_str);  // Starter function for actions
+    action_check_func_t checker;  // Checker function for actions
+    action_start_func_t starter;  // Starter function for actions
 };
 
 struct apihandler_data
@@ -123,8 +125,8 @@ struct apihandler_data
     struct apihandler common;
     const struct attribute *attributes;  // Points to the strucure descriptor
     size_t data_size;                    // Size of C structure
-    void (*getter)(void *);              // Getter/check/begin function
-    void (*setter)(void *);              // Setter/start/end function
+    data_func_t getter;                  // Getter/check/begin function
+    data_func_t setter;                  // Setter/start/end function
 };
 
 struct apihandler_array
@@ -132,9 +134,8 @@ struct apihandler_array
     struct apihandler common;
     const struct attribute *attributes;  // Points to the strucure descriptor
     size_t data_size;                    // Size of C structure
-    void (*getter)(uint64_t, void *);    // Getter/check/begin function
-    void (*setter)(uint64_t, void *);    // Setter/start/end function
-    uint64_t (*sizer)(void);             // Array size, for data handlers only
+    array_get_func_t getter;             // Getter function
+    array_set_func_t setter;             // Setter function
 };
 
 struct attribute s_state_attributes[] =
@@ -167,7 +168,7 @@ struct attribute s_network_settings_attributes[] =
 struct attribute s_settings_attributes[] =
 {
     {"string_val", "string", NULL, offsetof(struct settings, string_val), 40, false},
-    {"log_level", "string", NULL, offsetof(struct settings, log_level), 10, false},
+    {"log_level", "int", NULL, offsetof(struct settings, log_level), 0, false},
     {"double_val", "double", "%.5f", offsetof(struct settings, double_val), 0, false},
     {"int_val", "int", NULL, offsetof(struct settings, int_val), 0, false},
     {"bool_val", "bool", NULL, offsetof(struct settings, bool_val), 0, false},
@@ -179,20 +180,27 @@ struct attribute s_security_attributes[] =
     {"user_password", "string", NULL, offsetof(struct security, user_password), 40, false},
     {NULL, NULL, NULL, 0, 0, false}
 };
+struct attribute s_events_attributes[] =
+{
+    {"id", "int", NULL, offsetof(struct events, id), 0, false},
+    {"timestamp", "int", NULL, offsetof(struct events, timestamp), 0, false},
+    {"priority", "int", NULL, offsetof(struct events, priority), 0, false},
+    {"status", "int", NULL, offsetof(struct events, status), 0, false},
+    {"message", "string", NULL, offsetof(struct events, message), 100, false},
+    {NULL, NULL, NULL, 0, 0, false}
+};
 
 struct apihandler_action s_apihandler_reboot = {{"reboot", "action", false, 3, 7, 0UL}, glue_check_reboot, glue_start_reboot};
 struct apihandler_action s_apihandler_reformat = {{"reformat", "action", false, 3, 7, 0UL}, glue_check_reformat, glue_start_reformat};
 struct apihandler_action s_apihandler_save_event = {{"save_event", "action", false, 3, 7, 0UL}, glue_check_save_event, glue_start_save_event};
 struct apihandler_ota s_apihandler_firmware_update = {{"firmware_update", "ota", false, 3, 7, 0UL}, glue_ota_begin_firmware_update, glue_ota_end_firmware_update, glue_ota_write_firmware_update};
-struct apihandler_ota s_apihandler_firmware_update_stm32 = {{"firmware_update_stm32", "ota", false, 3, 7, 0UL}, glue_ota_begin_firmware_update_stm32, glue_ota_end_firmware_update_stm32, glue_ota_write_firmware_update_stm32};
 struct apihandler_upload s_apihandler_file_upload = {{"file_upload", "upload", false, 3, 7, 0UL}, glue_upload_open_file_upload, glue_upload_close_file_upload, glue_upload_write_file_upload};
 struct apihandler_data s_apihandler_state = {{"state", "data", true, 0, 0, 0UL}, s_state_attributes, sizeof(struct state), (void (*)(void *)) glue_get_state, NULL};
 struct apihandler_data s_apihandler_leds = {{"leds", "data", false, 3, 3, 0UL}, s_leds_attributes, sizeof(struct leds), (void (*)(void *)) glue_get_leds, (void (*)(void *)) glue_set_leds};
 struct apihandler_data s_apihandler_network_settings = {{"network_settings", "data", false, 3, 7, 0UL}, s_network_settings_attributes, sizeof(struct network_settings), (void (*)(void *)) glue_get_network_settings, (void (*)(void *)) glue_set_network_settings};
 struct apihandler_data s_apihandler_settings = {{"settings", "data", false, 3, 7, 0UL}, s_settings_attributes, sizeof(struct settings), (void (*)(void *)) glue_get_settings, (void (*)(void *)) glue_set_settings};
 struct apihandler_data s_apihandler_security = {{"security", "data", false, 7, 7, 0UL}, s_security_attributes, sizeof(struct security), (void (*)(void *)) glue_get_security, (void (*)(void *)) glue_set_security};
-struct apihandler_custom s_apihandler_loglevels = {{"loglevels", "custom", false, 0, 0, 0UL}, glue_reply_loglevels};
-struct apihandler_custom s_apihandler_events = {{"events", "custom", false, 0, 0, 0UL}, glue_reply_events};
+struct apihandler_array s_apihandler_events = {{"events", "array", false, 0, 0, 0UL}, s_events_attributes, sizeof(struct events), (bool (*)(void *, size_t, struct mg_str)) glue_get_events, (void (*)(void *, size_t, struct mg_str)) glue_set_events};
 
 static struct apihandler *s_apihandlers[] =
 {
@@ -200,16 +208,14 @@ static struct apihandler *s_apihandlers[] =
         (struct apihandler *) &s_apihandler_reformat,
             (struct apihandler *) &s_apihandler_save_event,
                 (struct apihandler *) &s_apihandler_firmware_update,
-                    (struct apihandler *) &s_apihandler_firmware_update_stm32,
-                        (struct apihandler *) &s_apihandler_file_upload,
-                            (struct apihandler *) &s_apihandler_state,
-                                (struct apihandler *) &s_apihandler_leds,
-                                    (struct apihandler *) &s_apihandler_network_settings,
-                                        (struct apihandler *) &s_apihandler_settings,
-                                            (struct apihandler *) &s_apihandler_security,
-                                                (struct apihandler *) &s_apihandler_loglevels,
-                                                    (struct apihandler *) &s_apihandler_events
-                                                    };
+                    (struct apihandler *) &s_apihandler_file_upload,
+                        (struct apihandler *) &s_apihandler_state,
+                            (struct apihandler *) &s_apihandler_leds,
+                                (struct apihandler *) &s_apihandler_network_settings,
+                                    (struct apihandler *) &s_apihandler_settings,
+                                        (struct apihandler *) &s_apihandler_security,
+                                            (struct apihandler *) &s_apihandler_events
+                                            };
 
 static struct apihandler *get_api_handler(struct mg_str name)
 {
@@ -256,31 +262,33 @@ void mongoose_set_http_handlers(const char *name, ...)
     }
     else if (strcmp(h->type, "data") == 0)
     {
-        ((struct apihandler_data *) h)->getter = va_arg(ap, mongoose_data_func_t);
-        ((struct apihandler_data *) h)->setter = va_arg(ap, mongoose_data_func_t);
+        ((struct apihandler_data *) h)->getter = va_arg(ap, data_func_t);
+        ((struct apihandler_data *) h)->setter = va_arg(ap, data_func_t);
+    }
+    else if (strcmp(h->type, "array") == 0)
+    {
+        ((struct apihandler_array *) h)->getter = va_arg(ap, array_get_func_t);
+        ((struct apihandler_array *) h)->setter = va_arg(ap, array_set_func_t);
     }
     else if (strcmp(h->type, "action") == 0)
     {
-        ((struct apihandler_action *) h)->checker =
-            va_arg(ap, mongoose_action_checker_t);
-        ((struct apihandler_action *) h)->starter =
-            va_arg(ap, mongoose_action_starter_t);
+        ((struct apihandler_action *) h)->checker = va_arg(ap, action_check_func_t);
+        ((struct apihandler_action *) h)->starter = va_arg(ap, action_start_func_t);
     }
     else if (strcmp(h->type, "file") == 0)
     {
-        ((struct apihandler_file *) h)->opener = va_arg(ap, mongoose_file_opener_t);
-        ((struct apihandler_file *) h)->server = va_arg(ap, mongoose_file_server_t);
+        ((struct apihandler_file *) h)->opener = va_arg(ap, file_open_func_t);
+        ((struct apihandler_file *) h)->server = va_arg(ap, file_serve_func_t);
     }
     else if (strcmp(h->type, "ota") == 0 || strcmp(h->type, "upload") == 0)
     {
-        ((struct apihandler_ota *) h)->opener = va_arg(ap, mongoose_ota_opener_t);
-        ((struct apihandler_ota *) h)->closer = va_arg(ap, mongoose_ota_closer_t);
-        ((struct apihandler_ota *) h)->writer = va_arg(ap, mongoose_ota_writer_t);
+        ((struct apihandler_ota *) h)->opener = va_arg(ap, ota_open_func_t);
+        ((struct apihandler_ota *) h)->closer = va_arg(ap, ota_close_func_t);
+        ((struct apihandler_ota *) h)->writer = va_arg(ap, ota_write_func_t);
     }
     else if (strcmp(h->type, "custom") == 0)
     {
-        ((struct apihandler_custom *) h)->reply =
-            va_arg(ap, mongoose_custom_reply_t);
+        ((struct apihandler_custom *) h)->reply = va_arg(ap, custom_reply_func_t);
     }
     else
     {
@@ -401,7 +409,6 @@ static void close_uploaded_file(struct upload_state *us)
 static bool file_closer(void *p)
 {
     mg_fs_close((struct mg_fd *) p);
-    MG_INFO(("AAAAAAAAA %p", p));
     return true;
 }
 
@@ -409,7 +416,6 @@ static bool file_writer(void *p, void *buf, size_t len)
 {
     struct mg_fd *fd = (struct mg_fd *) p;
     size_t written = fd->fs->wr(fd->fd, buf, len);
-    MG_INFO(("AAAAAAAAA %lu", written));
     return written == len;
 }
 
@@ -418,9 +424,10 @@ static void upload_handler(struct mg_connection *c, int ev, void *ev_data)
     struct upload_state *us = (struct upload_state *) c->data;
     if (sizeof(*us) > sizeof(c->data))
     {
-        mg_error(
-            c, "FAILURE: sizeof(c->data) == %lu, need %lu. Set -DMG_DATA_SIZE=XXX",
-            sizeof(c->data), sizeof(*us));
+        mg_error(c,
+                 "FAILURE: sizeof(c->data) == %lu, need %lu."
+                 " Set #define MG_DATA_SIZE XXX",
+                 sizeof(c->data), sizeof(*us));
         return;
     }
     // Catch uploaded file data for both MG_EV_READ and MG_EV_HTTP_HDRS
@@ -433,8 +440,8 @@ static void upload_handler(struct mg_connection *c, int ev, void *ev_data)
                                      : c->recv.len;  // Last write can be unaligned
         bool ok = aligned > 0 ? us->fn_write(us->fp, c->recv.buf, aligned) : true;
         us->received += aligned;
-        // MG_DEBUG(("%lu chunk: %lu/%lu, %lu/%lu, ok: %d", c->id, aligned,
-        //           c->recv.len, us->received, us->expected, ok));
+        //MG_DEBUG(("%lu chunk: %lu/%lu, %lu/%lu, ok: %d", c->id, aligned,
+        //          c->recv.len, us->received, us->expected, ok));
         mg_iobuf_del(&c->recv, 0, aligned);  // Delete received data
         if (ok == false)
         {
@@ -548,6 +555,7 @@ size_t print_struct(void (*out)(char, void *), void *ptr, va_list *ap)
 {
     const struct attribute *a = va_arg(*ap, struct attribute *);
     char *data = va_arg(*ap, char *);
+    size_t index = va_arg(*ap, size_t);  // Array printer may pass us an index
     size_t i, len = 0;
     for (i = 0; a[i].name != NULL; i++)
     {
@@ -569,7 +577,21 @@ size_t print_struct(void (*out)(char, void *), void *ptr, va_list *ap)
         }
         else if (strcmp(a[i].type, "string") == 0)
         {
-            len += mg_xprintf(out, ptr, "%m", MG_ESC(attrptr));
+            // We don't use MG_ESC cause the buffer may not be 0-terminated
+            len += mg_xprintf(out, ptr, "%m", mg_print_esc, a->size, attrptr);
+        }
+        else if (strcmp(a[i].type, "void") == 0)
+        {
+            // User should pass us a custom print function
+            void *v = *(void **) attrptr;
+            if (v == NULL)
+            {
+                len += mg_xprintf(out, ptr, "null");
+            }
+            else
+            {
+                len += mg_xprintf(out, ptr, "%M", v, index);
+            }
         }
         else
         {
@@ -577,6 +599,39 @@ size_t print_struct(void (*out)(char, void *), void *ptr, va_list *ap)
         }
     }
     return len;
+}
+
+static void populate_struct_from_json(struct mg_str json, char *tmp,
+                                      const struct attribute *attrs)
+{
+    size_t i;
+    for (i = 0; attrs[i].name != NULL; i++)
+    {
+        const struct attribute *a = &attrs[i];
+        char jpath[100];
+        mg_snprintf(jpath, sizeof(jpath), "$.%s", a->name);
+        if (strcmp(a->type, "int") == 0)
+        {
+            double d;
+            if (mg_json_get_num(json, jpath, &d))
+            {
+                int v = (int) d;
+                memcpy(tmp + a->offset, &v, sizeof(v));
+            }
+        }
+        else if (strcmp(a->type, "bool") == 0)
+        {
+            mg_json_get_bool(json, jpath, (bool *) (tmp + a->offset));
+        }
+        else if (strcmp(a->type, "double") == 0)
+        {
+            mg_json_get_num(json, jpath, (double *) (tmp + a->offset));
+        }
+        else if (strcmp(a->type, "string") == 0)
+        {
+            mg_json_get_str2(json, jpath, tmp + a->offset, a->size);
+        }
+    }
 }
 
 static void handle_object(struct mg_connection *c, struct mg_http_message *hm,
@@ -587,35 +642,8 @@ static void handle_object(struct mg_connection *c, struct mg_http_message *hm,
     if (hm->body.len > 0 && h->data_size > 0)
     {
         char *tmp = calloc(1, h->data_size);
-        size_t i;
         memcpy(tmp, data, h->data_size);
-        for (i = 0; h->attributes[i].name != NULL; i++)
-        {
-            const struct attribute *a = &h->attributes[i];
-            char jpath[100];
-            mg_snprintf(jpath, sizeof(jpath), "$.%s", a->name);
-            if (strcmp(a->type, "int") == 0)
-            {
-                double d;
-                if (mg_json_get_num(hm->body, jpath, &d))
-                {
-                    int v = (int) d;
-                    memcpy(tmp + a->offset, &v, sizeof(v));
-                }
-            }
-            else if (strcmp(a->type, "bool") == 0)
-            {
-                mg_json_get_bool(hm->body, jpath, (bool *) (tmp + a->offset));
-            }
-            else if (strcmp(a->type, "double") == 0)
-            {
-                mg_json_get_num(hm->body, jpath, (double *) (tmp + a->offset));
-            }
-            else if (strcmp(a->type, "string") == 0)
-            {
-                mg_json_get_str2(hm->body, jpath, tmp + a->offset, a->size);
-            }
-        }
+        populate_struct_from_json(hm->body, tmp, h->attributes);
         // If structure changes, increment version
         if (memcmp(data, tmp, h->data_size) != 0) s_device_change_version++;
         if (h->setter != NULL) h->setter(tmp);  // Can be NULL if readonly
@@ -623,23 +651,37 @@ static void handle_object(struct mg_connection *c, struct mg_http_message *hm,
         h->getter(data);  // Re-sync again after setting
     }
     mg_http_reply(c, 200, JSON_HEADERS, "{%M}\n", print_struct, h->attributes,
-                  data);
+                  data, 0);
     free(data);
 }
 
 static size_t print_array(void (*out)(char, void *), void *ptr, va_list *ap)
 {
     struct apihandler_array *ha = va_arg(*ap, struct apihandler_array *);
-    uint64_t size = *va_arg(*ap, uint64_t *);
-    uint64_t start = *va_arg(*ap, uint64_t *);
-    size_t i, max = 20, len = 0;
-    void *data = calloc(1, ha->data_size);
-    for (i = 0; i < max && start + i < size; i++)
+    struct mg_http_message *hm = va_arg(*ap, struct mg_http_message *);
+    struct mg_str parts[4] = {{0, 0}, {0, 0}, {0, 0}, {0, 0}};
+    size_t i = 0, len = 0, start = 0, stop = ~(size_t) 0;
+
+    if (mg_match(hm->uri, mg_str("/api/*/*/*"), parts) && parts[2].len > 0)
     {
-        ha->getter(start + i, data);
-        if (i > 0) len += mg_xprintf(out, ptr, ",");
-        len += mg_xprintf(out, ptr, "{%M}", print_struct, ha->attributes, data);
+        mg_str_to_num(parts[1], 10, &start, sizeof(start));
+        mg_str_to_num(parts[2], 10, &stop, sizeof(stop));
     }
+    else if (mg_match(hm->uri, mg_str("/api/*/*"), parts) && parts[1].len > 0)
+    {
+        mg_str_to_num(parts[1], 10, &start, sizeof(start));
+        stop = start;
+    }
+    if (start != stop) len += mg_xprintf(out, ptr, "[");
+    void *data = calloc(1, ha->data_size);
+    for (i = start; i <= stop; i++)
+    {
+        if (ha->getter(data, i, hm->query) == false) break;
+        if (i > start) len += mg_xprintf(out, ptr, ",");
+        len += mg_xprintf(out, ptr, "{%M}", print_struct, ha->attributes, data, i);
+    }
+    if (len == 0) len += mg_xprintf(out, ptr, "null");
+    if (start != stop) len += mg_xprintf(out, ptr, "]");
     free(data);
     return len;
 }
@@ -647,14 +689,28 @@ static size_t print_array(void (*out)(char, void *), void *ptr, va_list *ap)
 static void handle_array(struct mg_connection *c, struct mg_http_message *hm,
                          struct apihandler_array *h)
 {
-    char buf[40] = "";
-    uint64_t size = h->sizer();
-    uint64_t start = 0;
-    mg_http_get_var(&hm->query, "start", buf, sizeof(buf));
-    if (!mg_str_to_num(mg_str(buf), 10, &start, sizeof(start))) start = 0;
-    mg_http_reply(c, 200, JSON_HEADERS, "{%m:%llu, %m:%llu, %m:[%M]}\n",
-                  MG_ESC("size"), size, MG_ESC("start"), start, MG_ESC("data"),
-                  print_array, h, &size, &start);
+    if (hm->body.len > 0 && h->data_size > 0)
+    {
+        char *tmp = calloc(2, h->data_size);  // Allocate struct and backup
+        // The URI is /api/NAME/ITEM_INDEX. Get the array item index from the URI
+        size_t index = 0;
+        struct mg_str parts[3] = {{0, 0}, {0, 0}, {0, 0}};
+        mg_match(hm->uri, mg_str("/api/*/#"), parts);
+        mg_str_to_num(parts[1], 10, &index, sizeof(index));
+        // Fetch current item, then call a setter to update it
+        if (h->getter(tmp, index, hm->query))
+        {
+            memcpy(tmp + h->data_size, tmp, h->data_size);  // Make a backup
+            populate_struct_from_json(hm->body, tmp, h->attributes);
+            if (memcmp(tmp, tmp + h->data_size, h->data_size) != 0)
+            {
+                s_device_change_version++;  // Structure changed, signal to the UI
+            }
+            if (h->setter != NULL) h->setter(tmp, index, hm->query);  // Call setter
+        }
+        free(tmp);
+    }
+    mg_http_reply(c, 200, JSON_HEADERS, "%M\n", print_array, h, hm);
 }
 
 size_t print_timeseries(void (*out)(char, void *), void *ptr, va_list *ap)
@@ -833,51 +889,41 @@ static void http_ev_handler(struct mg_connection *c, int ev, void *ev_data)
 struct ws_handler
 {
     unsigned timeout_ms;
-    void (*fn)(struct mg_connection *);
+    struct apihandler *h;
 };
-static struct ws_handler
-s_ws_handlers[sizeof(((struct mg_connection *) 0)->data) /
-              sizeof(struct ws_handler)];
-static size_t s_ws_handlers_count;
+// We keep WS timers inside c->data, that's why the list of WS timers
+// should fit there.
+#define MG_DATA_BUF_SIZE sizeof(((struct mg_connection *) 0)->data)
+#define WS_MAX (MG_DATA_BUF_SIZE / sizeof(uint64_t))
 
-void mongoose_add_ws_handler(unsigned ms, void (*fn)(struct mg_connection *))
-{
-    size_t max = sizeof(s_ws_handlers) / sizeof(s_ws_handlers[0]);
-    if (s_ws_handlers_count >= max)
-    {
-        MG_ERROR(("WS handlers limit exceeded, max %lu", max));
-    }
-    else
-    {
-        s_ws_handlers[s_ws_handlers_count].timeout_ms = ms;
-        s_ws_handlers[s_ws_handlers_count].fn = fn;
-        s_ws_handlers_count++;
-    }
-};
+static struct ws_handler s_ws_handlers[WS_MAX];
+// static size_t s_ws_handlers_count;
 
 void mongoose_add_ws_reporter(unsigned ms, const char *name)
 {
-    size_t max = sizeof(s_ws_handlers) / sizeof(s_ws_handlers[0]);
     struct apihandler *h = get_api_handler(mg_str(name));
-    if (s_ws_handlers_count >= max)
+    size_t i = 0;
+    while (i < WS_MAX && s_ws_handlers[i].h != NULL) i++;
+    if (i >= WS_MAX)
     {
-        MG_ERROR(("WS handlers limit exceeded, max %lu", max));
+        MG_ERROR(("WS handlers limit exceeded, max %lu", WS_MAX));
+    }
+    else if (ms == 0)
+    {
+        MG_ERROR(("Invalid timeout for %s", name));
     }
     else if (h == NULL)
     {
         MG_ERROR(("No handler for %s", name));
     }
-    else if (strcmp(h->type, "data") != 0)
+    else if (strcmp(h->type, "data") != 0 && strcmp(h->type, "array") != 0)
     {
-        MG_ERROR(("Handler %s should be a data handler", name));
+        MG_ERROR(("Handler %s should be a array/data handler", name));
     }
     else
     {
-        const unsigned msb = 1U << (sizeof(unsigned) * 8 - 1);
-        s_ws_handlers[s_ws_handlers_count].timeout_ms = ms | msb;
-        s_ws_handlers[s_ws_handlers_count].fn =
-            (void (*)(struct mg_connection *)) h;
-        s_ws_handlers_count++;
+        s_ws_handlers[i].timeout_ms = ms;
+        s_ws_handlers[i].h = h;
     }
 };
 
@@ -890,32 +936,33 @@ static void send_websocket_data(void)
     {
         uint64_t *timers = (uint64_t *) &c->data[0];
         size_t i;
-        const unsigned msb = 1U << (sizeof(unsigned) * 8 - 1);
 
         if (c->is_websocket == 0) continue;  // Not a websocket connection? Skip
         if (c->send.len > 2048) continue;    // Too much data already? Skip
 
-        for (i = 0; i < s_ws_handlers_count; i++)
+        for (i = 0; i < WS_MAX; i++)
         {
-            // TODO(cpq): once mongoose_add_ws_handler() is deprecated,
-            // remove the msb hack
-            unsigned long timeout = s_ws_handlers[i].timeout_ms & ~msb;
-            if (mg_timer_expired(&timers[i], timeout, now))
+            if (s_ws_handlers[i].timeout_ms == 0) break;
+            if (s_ws_handlers[i].h == NULL) break;
+            if (mg_timer_expired(&timers[i], s_ws_handlers[i].timeout_ms, now))
             {
-                if (s_ws_handlers[i].timeout_ms & msb)
+                struct apihandler *ah = s_ws_handlers[i].h;
+                if (strcmp(ah->type, "data") == 0)
                 {
-                    struct apihandler_data *h =
-                        (struct apihandler_data *) s_ws_handlers[i].fn;
+                    struct apihandler_data *h = (struct apihandler_data *) ah;
                     void *data = mg_calloc(1, h->data_size);
                     h->getter(data);
                     mg_ws_printf(c, WEBSOCKET_OP_TEXT, "{%m:{%M}}",
                                  MG_ESC(h->common.name), print_struct, h->attributes,
-                                 data);
+                                 data, 0);
                     mg_free(data);
                 }
-                else
+                else if (strcmp(ah->type, "array") == 0)
                 {
-                    s_ws_handlers[i].fn(c);
+                    struct apihandler_array *h = (struct apihandler_array *) ah;
+                    struct mg_http_message fake = {};
+                    mg_ws_printf(c, WEBSOCKET_OP_TEXT, "{%m:%M}\n",
+                                 MG_ESC(h->common.name), print_array, h, &fake);
                 }
             }
         }
@@ -1029,7 +1076,7 @@ static void handle_modbus_pdu(struct mg_connection *c, uint8_t *buf,
                               size_t len)
 {
     MG_DEBUG(("Received PDU %p len %lu, hexdump:", buf, len));
-    mg_hexdump(buf, len);
+    if (mg_log_level >= MG_LL_VERBOSE) mg_hexdump(buf, len);
     // size_t hdr_size = 8, max_data_size = sizeof(response) - hdr_size;
     if (len < 12)
     {
@@ -1101,7 +1148,7 @@ static void handle_modbus_pdu(struct mg_connection *c, uint8_t *buf,
         }
         *(uint16_t *) &response[4] = mg_htons((uint16_t) (response_len - 6));
         MG_DEBUG(("Sending PDU response %lu:", response_len));
-        mg_hexdump(response, response_len);
+        if (mg_log_level >= MG_LL_VERBOSE) mg_hexdump(response, response_len);
         mg_send(c, response, response_len);
     }
 }

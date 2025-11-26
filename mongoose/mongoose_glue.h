@@ -32,6 +32,13 @@ extern "C" {
 #define WIZARD_ENABLE_MDNS 0
 #define WIZARD_MDNS_NAME ""
 
+#define WIZARD_ENABLE_WIFI 0
+#define WIZARD_WIFI_NAME "MyNet"
+#define WIZARD_WIFI_PASS "MyPass"
+#define WIZARD_ENABLE_WIFI_AP 0
+#define WIZARD_WIFI_AP_NAME "MyAp"
+#define WIZARD_WIFI_AP_PASS "MyApPass"
+
 #define WIZARD_ENABLE_MODBUS 0
 #define WIZARD_MODBUS_PORT 502
 
@@ -86,7 +93,9 @@ void glue_update_state(void);
 
 // Firmware Glue
 
+
 void glue_sntp_on_time(uint64_t utc_time_in_milliseconds);
+
 
 int    glue_authenticate(const char *user, const char *pass);
 
@@ -102,10 +111,6 @@ bool glue_check_save_event(void);  // Check if action is still in progress
 void *glue_ota_begin_firmware_update(char *file_name, size_t total_size);
 bool glue_ota_end_firmware_update(void *context);
 bool glue_ota_write_firmware_update(void *context, void *buf, size_t len);
-
-void *glue_ota_begin_firmware_update_stm32(char *file_name, size_t total_size);
-bool glue_ota_end_firmware_update_stm32(void *context);
-bool glue_ota_write_firmware_update_stm32(void *context, void *buf, size_t len);
 
 void *glue_upload_open_file_upload(char *file_name, size_t total_size);
 bool glue_upload_close_file_upload(void *context);
@@ -146,7 +151,7 @@ void glue_set_network_settings(struct network_settings *);
 struct settings
 {
     char string_val[40];
-    char log_level[10];
+    int log_level;
     double double_val;
     int int_val;
     bool bool_val;
@@ -162,8 +167,19 @@ struct security
 void glue_get_security(struct security *);
 void glue_set_security(struct security *);
 
-void glue_reply_loglevels(struct mg_connection *, struct mg_http_message *);
-void glue_reply_events(struct mg_connection *, struct mg_http_message *);
+struct events
+{
+    int id;
+    int timestamp;
+    int priority;
+    int status;
+    char message[100];
+};
+bool glue_get_events(struct events *, size_t index, struct mg_str params);
+void glue_set_events(struct events *, size_t index, struct mg_str params);
+
+
+
 
 #ifdef __cplusplus
 }

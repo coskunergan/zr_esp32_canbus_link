@@ -1,5 +1,5 @@
 {
-    "version": "1.0.2",
+    "version": "1.0.3",
     "http": {
         "http": true,
         "https": false,
@@ -19,10 +19,10 @@
         "captive": false
     },
     "sntp": {
-        "enable": false,
+        "enable": true,
         "type": 0,
         "url": "udp://time.google.com:123",
-        "interval": 3600
+        "interval": "15"
     },
     "modbus": {
         "enable": false,
@@ -97,6 +97,16 @@
                     "type": "int",
                     "value": 83
                 }
+            },
+            "value": {
+                "speed": 42,
+                "temperature": 27,
+                "humidity": 67,
+                "uptime": 10,
+                "version": "1.0.0",
+                "online": true,
+                "lights": false,
+                "level": 83
             }
         },
         "leds": {
@@ -116,6 +126,11 @@
                     "type": "bool",
                     "value": false
                 }
+            },
+            "value": {
+                "led1": false,
+                "led2": true,
+                "led3": false
             }
         },
         "network_settings": {
@@ -142,6 +157,12 @@
                     "type": "bool",
                     "value": true
                 }
+            },
+            "value": {
+                "ip_address": "192.168.0.42",
+                "gw_address": "192.168.0.1",
+                "netmask": "255.255.255.0",
+                "dhcp": true
             }
         },
         "settings": {
@@ -155,9 +176,8 @@
                     "size": 40
                 },
                 "log_level": {
-                    "type": "string",
-                    "size": 10,
-                    "value": "info"
+                    "type": "int",
+                    "value": 2
                 },
                 "double_val": {
                     "type": "double",
@@ -172,6 +192,13 @@
                     "type": "bool",
                     "value": true
                 }
+            },
+            "value": {
+                "string_val": "edit & save me",
+                "log_level": 2,
+                "double_val": 123.12345,
+                "int_val": 17,
+                "bool_val": true
             }
         },
         "security": {
@@ -189,36 +216,44 @@
                     "value": "user",
                     "size": 40
                 }
+            },
+            "value": {
+                "admin_password": "admin",
+                "user_password": "user"
             }
         },
-        "loglevels": {
-            "type": "custom",
-            "value": [
-                "disabled",
-                "error",
-                "info",
-                "debug",
-                "verbose"
-            ]
-        },
         "events": {
-            "type": "custom",
+            "type": "array",
+            "attributes": {
+                "id": {
+                    "type": "int",
+                    "value": 0
+                },
+                "timestamp": {
+                    "type": "int",
+                    "value": 1738653279
+                },
+                "priority": {
+                    "type": "int",
+                    "value": 2
+                },
+                "status": {
+                    "type": "int",
+                    "value": 2
+                },
+                "message": {
+                    "type": "string",
+                    "value": "Some event",
+                    "size": 100
+                }
+            },
             "value": [
                 {
                     "id": 0,
                     "timestamp": 1738653279,
-                    "message": "Something failed",
                     "priority": 2,
-                    "status": "active",
-                    "notes": "some notes"
-                },
-                {
-                    "id": 1,
-                    "timestamp": 12395,
-                    "message": "Something succeeded",
-                    "priority": 1,
-                    "status": "processed",
-                    "notes": "notes 2"
+                    "status": 2,
+                    "message": "Some event"
                 }
             ]
         },
@@ -235,6 +270,10 @@
                     "value": "",
                     "size": 20
                 }
+            },
+            "value": {
+                "username": "",
+                "password": ""
             }
         },
         "local": {
@@ -258,6 +297,12 @@
                     "type": "bool",
                     "value": true
                 }
+            },
+            "value": {
+                "username": "Joe",
+                "userlevel": 7,
+                "lastsync": "",
+                "online": true
             }
         }
     },
@@ -278,8 +323,8 @@
                             "layout": [
                                 {
                                     "type": "image",
-                                    "image": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<svg viewBox=\"0 0 600 150\" xmlns=\"http://www.w3.org/2000/svg\">\n  <rect x=\"0\" y=\"0\" width=\"600\" height=\"150\" rx=\"20\" ry=\"20\" style=\"stroke: none; fill: #e1e5e9;\"/>\n  <text style=\"fill: #94A3B8; font-family: Arial, sans-serif; font-size: 92px;dominant-baseline: middle; text-anchor: middle; \" x=\"50%\" y=\"50%\">my logo</text>\n</svg>",
-                                    "css": "width: 8.5rem; height: 1.5rem; align-items: center; justify-content: center; display: flex;"
+                                    "image": "data:image/png;base64,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",
+                                    "css": "flex: 0 0 auto;\nwidth: 8.5rem;\nheight: 1.5rem;\nalign-items: center;\njustify-content: center;\ndisplay: flex;"
                                 }
                             ]
                         },
@@ -350,7 +395,7 @@
                 "layout": [
                     {
                         "classes": "container",
-                        "css": "flex-wrap:wrap; gap:0.5rem;",
+                        "css": "flex-wrap: wrap;\ngap: 0.5rem;",
                         "layout": [
                             {
                                 "classes": "card",
@@ -414,7 +459,7 @@
                     },
                     {
                         "classes": "container",
-                        "css": "gap:0.5rem;",
+                        "css": "gap: 0.5rem;",
                         "layout": [
                             {
                                 "classes": "container",
@@ -660,7 +705,7 @@
                                         "layout": [
                                             {
                                                 "classes": "label",
-                                                "format": "Integer value"
+                                                "format": "Slider"
                                             },
                                             {
                                                 "type": "slider",
@@ -690,12 +735,12 @@
                                         "layout": [
                                             {
                                                 "classes": "label",
-                                                "format": "Dropdown"
+                                                "format": "Log level"
                                             },
                                             {
                                                 "type": "dropdown",
                                                 "ref": "settings.log_level",
-                                                "options": "${loglevels}",
+                                                "options": "0:0 (disabled),1:1 (error),2:2 (info),3:3 (debug),4:4 (verbose)",
                                                 "css": "width: 8rem;"
                                             }
                                         ]
@@ -856,7 +901,7 @@
                 "title": "Firmware Update",
                 "icon": "import",
                 "level": 7,
-                "css": "padding: 0.75rem; gap: 0.5rem; min-height: 2rem; display: flex; flex-direction: column; flex-grow: 1;",
+                "css": "padding: 0.75rem;\ngap: 0.5rem;\nmin-height: 2rem;\ndisplay: flex;\nflex-direction: column;\nflex-grow: 1;",
                 "layout": [
                     {
                         "classes": "container",
@@ -864,7 +909,7 @@
                         "layout": [
                             {
                                 "classes": "panel",
-                                "css": "width: 24rem;",
+                                "css": "flex: 0 0 auto;\nheight: 7rem;\nwidth: 24rem;",
                                 "layout": [
                                     {
                                         "classes": "title",
@@ -887,7 +932,7 @@
                                         "layout": [
                                             {
                                                 "classes": "label",
-                                                "format": "Upload new firmware"
+                                                "format": "Upload firmware"
                                             },
                                             {
                                                 "type": "ota",
@@ -896,7 +941,8 @@
                                                 "icon": "ellipsis-horizontal",
                                                 "accept": ".bin"
                                             }
-                                        ]
+                                        ],
+                                        "css": "height: 1.595458984375rem;"
                                     }
                                 ]
                             }
@@ -943,10 +989,6 @@
                                                 "css": "width: 5rem;"
                                             },
                                             {
-                                                "format": "Notes",
-                                                "css": "width: 10rem;"
-                                            },
-                                            {
                                                 "format": "",
                                                 "css": "width: 5rem;"
                                             }
@@ -960,37 +1002,33 @@
                                 "css": "padding:0.1rem 0;border-top:1px solid #eee; align-items: center;",
                                 "layout": [
                                     {
-                                        "format": "${current.id}",
+                                        "format": "${events[i].id}",
                                         "css": "width: 5rem;"
                                     },
                                     {
-                                        "format": "${current.timestamp}",
+                                        "format": "${events[i].timestamp}",
                                         "css": "width: 10rem;"
                                     },
                                     {
-                                        "format": "${current.message}",
+                                        "format": "${events[i].message}",
                                         "css": "width: 15rem;"
                                     },
                                     {
-                                        "format": "${current.priority}",
+                                        "format": "${events[i].priority}",
                                         "css": "width: 5rem;"
                                     },
                                     {
-                                        "format": "Status",
-                                        "css": "width: 5rem;"
+                                        "type": "dropdown",
+                                        "options": "0,1",
+                                        "ref": "events.status",
+                                        "css": "width: 4rem; margin-right: 1rem;"
                                     },
                                     {
-                                        "type": "input",
-                                        "ref": "current.notes",
-                                        "css": "margin-right: 0.5rem;"
-                                    },
-                                    {
-                                        "type": "action",
-                                        "ref": "save_event",
+                                        "type": "savebutton",
+                                        "ref": "events",
                                         "css": "width: 5rem;",
                                         "title": "save",
-                                        "icon": "save",
-                                        "params": "{\"id\": ${current.id}, \"notes\": \"${current.notes}\"}"
+                                        "icon": "save"
                                     }
                                 ]
                             }
@@ -1065,18 +1103,18 @@
                             "layout": [
                                 {
                                     "classes": "container",
-                                    "css": "align-items: start; gap: 0.5rem; flex-grow: 1;",
+                                    "css": "flex: 0 0 auto;\nwidth: 21.59375rem;\nalign-items: start;\ngap: 0.5rem;\nflex-grow: 1;",
                                     "layout": [
                                         {
                                             "type": "image",
-                                            "image": "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<svg viewBox=\"0 0 600 150\" xmlns=\"http://www.w3.org/2000/svg\">\n  <rect x=\"0\" y=\"0\" width=\"600\" height=\"150\" rx=\"20\" ry=\"20\" style=\"stroke: none; fill: #e1e5e9;\"/>\n  <text style=\"fill: #94A3B8; font-family: Arial, sans-serif; font-size: 92px;dominant-baseline: middle; text-anchor: middle; \" x=\"50%\" y=\"50%\">my logo</text>\n</svg>",
-                                            "css": "flex: 0 0 auto; width: 8.5rem; height: 4rem; flex-grow: 1;"
+                                            "image": "data:image/png;base64,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",
+                                            "css": "flex: 0 0 auto;\nheight: 5.25rem;\nwidth: 21.59375rem;"
                                         }
                                     ]
                                 },
                                 {
                                     "classes": "container",
-                                    "css": "gap: 0.5rem; flex-wrap: wrap;flex-grow: 1;",
+                                    "css": "flex: 0 0 auto;\nwidth: 22.5rem;\ngap: 0.5rem;\nflex-wrap: wrap;\nflex-grow: 1;",
                                     "layout": [
                                         {
                                             "classes": "container",
@@ -1098,7 +1136,7 @@
                         },
                         {
                             "classes": "container",
-                            "css": "background: #ffffff; flex-direction: column; justify-content: center; align-items: center; gap: 0.5rem; flex-grow: 1; flex-wrap: wrap;",
+                            "css": "background: #ffffff;\nflex-direction: column;\njustify-content: center;\nalign-items: center;\ngap: 0.5rem;\nflex-grow: 1;\nflex-wrap: wrap;",
                             "layout": [
                                 {
                                     "classes": "container",
