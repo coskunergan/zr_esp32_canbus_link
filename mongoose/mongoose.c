@@ -7789,7 +7789,7 @@ bool mg_ota_end(void)
     if(check_device_tlv_is_correct("STM32"))
     {
         MG_INFO(("STM32 IMG Downloaded."));
-#ifdef CONFIG_MODBUS_SERIAL  
+#ifdef CONFIG_MODBUS_SERIAL
         extern uint8_t client_iface;
         modbus_disable(client_iface);
 #endif

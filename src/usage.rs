@@ -3,6 +3,7 @@
 // Coskun ERGAN <coskunergan@gmail.com>
 
 use zephyr::kconfig::CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC;
+use zephyr::raw;
 use zephyr::raw::k_cycle_get_32;
 
 static mut LAST_CYCLES: u32 = 0;
@@ -23,6 +24,9 @@ pub fn get_last_cycles() -> u32 {
 }
 #[allow(dead_code)]
 pub fn set_logger() -> Result<(), &'static str> {
+    unsafe {
+        raw::k_thread_priority_set(raw::k_current_get(), 5);
+    }
     unsafe { zephyr::set_logger() }.map_err(|_| "Logger failure.")
 }
 #[allow(dead_code)]

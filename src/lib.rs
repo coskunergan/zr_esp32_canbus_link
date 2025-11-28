@@ -19,9 +19,8 @@ use embassy_executor::Spawner;
 use static_cell::StaticCell;
 
 use zephyr::device::gpio::GpioPin;
-use zephyr::raw;
 
-use portable_atomic::{AtomicU16, Ordering};
+use portable_atomic::{AtomicF32, AtomicU16, Ordering};
 //use core::{sync::atomic::AtomicU16, sync::atomic::Ordering};
 
 use canbus::CanBus;
@@ -50,41 +49,13 @@ static BLUE_LED_PIN: GlobalPin = GlobalPin::new();
 static COUNTER: AtomicU16 = AtomicU16::new(0);
 static REGISTER: AtomicU16 = AtomicU16::new(0);
 
+static TEMP_VAL: AtomicF32 = AtomicF32::new(0.0);
+static HUMI_VAL: AtomicF32 = AtomicF32::new(0.0);
+
 const VERSION_MAJOR: &str = env!("VERSION_MAJOR");
 const VERSION_MINOR: &str = env!("VERSION_MINOR");
 const PATCHLEVEL: &str = env!("PATCHLEVEL");
 const EXTRAVERSION: &str = env!("EXTRAVERSION");
-
-#[repr(C)]
-pub struct Leds {
-    pub led1: bool,
-    pub led2: bool,
-    pub led3: bool,
-}
-
-extern "C" {
-    fn glue_set_temperature(new_temp: i32);
-    fn glue_set_humidity(new_humi: i32);
-    fn glue_get_leds(data: *mut Leds);
-}
-
-pub fn set_temperature(temp: i32) {
-    unsafe {
-        glue_set_temperature(temp);
-    }
-}
-
-pub fn set_humidity(temp: i32) {
-    unsafe {
-        glue_set_humidity(temp);
-    }
-}
-
-pub fn get_leds(led: *mut Leds) {
-    unsafe {
-        glue_get_leds(led);
-    }
-}
 
 //====================================================================================
 //====================================================================================
@@ -113,8 +84,8 @@ async fn led_task(spawner: Spawner) {
         match sensor.read_data() {
             Ok((temp, hum)) => {
                 log::info!("Temperature: {:.2}°C | Humidity: {:.2}%RH", temp, hum);
-                set_temperature(temp as i32);
-                set_humidity(hum as i32);
+                TEMP_VAL.store(temp, Ordering::Relaxed);
+                HUMI_VAL.store(hum, Ordering::Relaxed);
                 display.clear();
                 let msg = format!("Tempera: {:2.2} CHumidity: {:2.1} %", temp, hum);
                 display.write(msg.as_bytes());
@@ -155,6 +126,7 @@ async fn mg_task() {
     let red_led_pin = RED_LED_PIN.get();
     let green_led_pin = GREEN_LED_PIN.get();
     let blue_led_pin = BLUE_LED_PIN.get();
+    use crate::mg::Leds;
     let mut state = Leds {
         led1: false,
         led2: false,
@@ -163,10 +135,12 @@ async fn mg_task() {
     loop {
         Timer::after(Duration::from_millis(1)).await;
         mg.mg_poll();
-        get_leds(&mut state as *mut Leds);
+        mg.get_leds(&mut state as *mut Leds);
         red_led_pin.set(state.led1);
         green_led_pin.set(state.led2);
         blue_led_pin.set(state.led3);
+        mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
+        mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
     }
 }
 //====================================================================================
@@ -187,10 +161,6 @@ extern "C" fn rust_main() {
     let _ = usage::set_logger();
 
     log::info!("Restart!!!\r\n");
-
-    unsafe {
-        raw::k_thread_priority_set(raw::k_current_get(), 5);
-    }
 
     RED_LED_PIN.init(Pin::new(
         zephyr::devicetree::labels::red_led::get_instance().expect("my_red_led not found!"),
