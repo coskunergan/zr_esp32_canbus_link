@@ -3,8 +3,8 @@
 // Coskun ERGAN <coskunergan@gmail.com>
 
 extern "C" {
-    fn mg_init() -> i32;
-    fn mg_poll();
+    fn mongoose_init();
+    fn mongoose_poll();
     fn glue_set_temperature(new_temp: i32);
     fn glue_set_humidity(new_humi: i32);
     fn glue_get_leds(data: *mut Leds);
@@ -23,14 +23,11 @@ pub struct Mongoose {
 
 impl Mongoose {
     pub fn new() -> Self {
-        let ret = unsafe { mg_init() };
-        if ret != 0 {
-            panic!("Failed to initialize Mongoose: error {}", ret);
-        }
+        unsafe { mongoose_init() };
         Mongoose { _private: () }
     }
     pub fn mg_poll(&self) {
-        unsafe { mg_poll() };
+        unsafe { mongoose_poll() };
     }
     pub fn set_temperature(&self, temp: i32) {
         unsafe {

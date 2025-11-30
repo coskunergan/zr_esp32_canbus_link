@@ -129,6 +129,9 @@ struct state
 };
 void glue_get_state(struct state *);
 
+void glue_set_temperature(int new_temp);
+void glue_set_humidity(int new_humi);
+
 struct leds
 {
     bool led1;
