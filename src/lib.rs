@@ -23,9 +23,9 @@ use zephyr::device::gpio::GpioPin;
 use portable_atomic::{AtomicF32, AtomicU16, Ordering};
 //use core::{sync::atomic::AtomicU16, sync::atomic::Ordering};
 
+use crate::mg::{Mongoose, MongooseEvent};
 use canbus::CanBus;
 use display_io::Display;
-use mg::Mongoose;
 use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
 use sht21::Sht21;
@@ -120,25 +120,57 @@ async fn canbus_task(can: CanBus) {
 }
 //====================================================================================
 #[embassy_executor::task]
-async fn mg_task() {
-    Timer::after(Duration::from_millis(1000)).await;
-    let mg = Mongoose::new();
+async fn mg_event_task(mg: Mongoose) {
     let red_led_pin = RED_LED_PIN.get();
     let green_led_pin = GREEN_LED_PIN.get();
     let blue_led_pin = BLUE_LED_PIN.get();
-    use crate::mg::Leds;
-    let mut state = Leds {
-        led1: false,
-        led2: false,
-        led3: false,
-    };
+    loop {
+        let event = mg.wait_event().await;
+        match event {
+            MongooseEvent::LedChanged(leds) => {
+                red_led_pin.set(leds.led1);
+                green_led_pin.set(leds.led2);
+                blue_led_pin.set(leds.led3);
+                log::warn!("LEDler değişti");
+            }
+            MongooseEvent::NetworkSettingsChanged(_net) => {
+                log::warn!("Network ayarları değişti.");
+            }
+            MongooseEvent::SettingsChanged(_s) => {
+                log::warn!("Settings değişti");
+            }
+            MongooseEvent::SecurityChanged(security) => {
+                let admin = core::str::from_utf8(
+                    &security
+                        .admin_password
+                        .split(|&b| b == 0)
+                        .next()
+                        .unwrap_or(&[]),
+                )
+                .unwrap_or("?");
+                let user = core::str::from_utf8(
+                    &security
+                        .user_password
+                        .split(|&b| b == 0)
+                        .next()
+                        .unwrap_or(&[]),
+                )
+                .unwrap_or("?");
+                log::warn!("Security güncellendi! Admin: {}, User: {}", admin, user);
+            }
+        }
+    }
+}
+//====================================================================================
+#[embassy_executor::task]
+async fn mg_task(spawner: Spawner) {
+    Timer::after(Duration::from_millis(1000)).await;
+    let mg = Mongoose::new(spawner);
+    spawner.spawn(mg_event_task(mg)).unwrap();
+
     loop {
         Timer::after(Duration::from_millis(1)).await;
         mg.mg_poll();
-        mg.get_leds(&mut state as *mut Leds);
-        red_led_pin.set(state.led1);
-        green_led_pin.set(state.led2);
-        blue_led_pin.set(state.led3);
         mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
         mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
     }
@@ -193,7 +225,7 @@ extern "C" fn rust_main() {
     let executor = EXECUTOR_MAIN.init(Executor::new());
     executor.run(|spawner| {
         spawner.spawn(led_task(spawner)).unwrap();
-        spawner.spawn(mg_task()).unwrap();
+        spawner.spawn(mg_task(spawner)).unwrap();
         spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
