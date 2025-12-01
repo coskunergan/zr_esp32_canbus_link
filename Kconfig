@@ -18,6 +18,18 @@ config SAMPLE_RX_THREAD_PRIORITY
 
 if WIFI
 
+config WIFI_SAMPLE_DHCPV4_START
+	int "WIFI_SAMPLE_DHCPV4_START"
+	default 1
+
+config WIFI_SAMPLE_AP_IP_ADDRESS
+	string "CONFIG_WIFI_SAMPLE_AP_IP_ADDRESS - Network IP"
+	default "192.168.4.1"	
+
+config WIFI_SAMPLE_AP_NETMASK
+	string "CONFIG_WIFI_SAMPLE_AP_NETMASK - Network NETMASK"
+	default "255.255.255.0"	
+
 config WIFI_SAMPLE_SSID
 	string "WIFI SSID - Network name"
 	default "SUPERONLINE_Wi-Fi_3AS4"
@@ -28,11 +40,11 @@ config WIFI_SAMPLE_PSK
 
 config WIFI_SAMPLE_AP_SSID
 	string "WIFI AP SSID - Network name"
-	default "MY_SSID_AP"
+	default "XENTRON_AP"
 
 config WIFI_SAMPLE_AP_PSK
 	string "WIFI AP PSK - Network password key"
-	default "password"	
+	default "deneme123"	
 
 endif # WIFI
 

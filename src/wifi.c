@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
-
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/net/wifi_mgmt.h>
 #include <zephyr/net/dhcpv4_server.h>
@@ -27,13 +27,12 @@ static bool connected;
 
 static struct net_mgmt_event_callback cb;
 
+extern uint8_t get_current_ssid_len(void);
+extern const uint8_t *get_current_ssid(void);
+extern uint8_t get_current_psk_len(void);
+extern const uint8_t *get_current_psk(void);
+
 /* Check necessary definitions */
-
-BUILD_ASSERT(sizeof(CONFIG_WIFI_SAMPLE_AP_SSID) > 1,
-             "CONFIG_WIFI_SAMPLE_AP_SSID is empty. Please set it in conf file.");
-
-BUILD_ASSERT(sizeof(CONFIG_WIFI_SAMPLE_SSID) > 1,
-             "CONFIG_WIFI_SAMPLE_SSID is empty. Please set it in conf file.");
 
 #if WIFI_SAMPLE_DHCPV4_START
 BUILD_ASSERT(sizeof(CONFIG_WIFI_SAMPLE_AP_IP_ADDRESS) > 1,
@@ -54,7 +53,7 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt
             const struct wifi_status *status = (const struct wifi_status *)cb->info;
             if(status->status == 0)
             {
-                LOG_INF("WiFi connected successfully! to %s", CONFIG_WIFI_SAMPLE_SSID);
+                LOG_INF("WiFi connected successfully! to %s", get_current_ssid());
                 connected = true;
             }
             else
@@ -67,7 +66,7 @@ static void wifi_event_handler(struct net_mgmt_event_callback *cb, uint64_t mgmt
         case NET_EVENT_WIFI_DISCONNECT_RESULT:
         {
             connected = false;
-            LOG_INF("Disconnected from %s", CONFIG_WIFI_SAMPLE_SSID);
+            LOG_INF("Disconnected from %s", get_current_ssid());
             break;
         }
         case NET_EVENT_WIFI_AP_ENABLE_RESULT:
@@ -153,6 +152,26 @@ static int enable_ap_mode(void)
         return -EIO;
     }
 
+    // struct in_addr ipv4_addr;
+    // struct in_addr netmask;
+    // struct in_addr gateway;
+
+    // if(net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_ADDR, &ipv4_addr))
+    // {
+    //     LOG_ERR("Hata: Geçersiz IP adresi");
+    //     return -EINVAL;
+    // }
+    // if(net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_NETMASK, &netmask))
+    // {
+    //     LOG_ERR("Hata: Geçersiz Ağ Maskesi");
+    //     return -EINVAL;
+    // }
+    // if(net_addr_pton(AF_INET, CONFIG_NET_CONFIG_MY_IPV4_GW, &gateway))
+    // {
+    //     LOG_ERR("Hata: Geçersiz Ağ Geçidi");
+    //     return -EINVAL;
+    // }
+
     LOG_INF("Turning on AP Mode");
     ap_config.ssid = (const uint8_t *)CONFIG_WIFI_SAMPLE_AP_SSID;
     ap_config.ssid_length = sizeof(CONFIG_WIFI_SAMPLE_AP_SSID) - 1;
@@ -169,6 +188,14 @@ static int enable_ap_mode(void)
     {
         ap_config.security = WIFI_SECURITY_TYPE_PSK;
     }
+
+    // struct in_addr src = { { { 192, 168, 0, 1 } } };
+
+    // net_if_ipv4_addr_add(ap_iface, &ipv4_addr, NET_ADDR_MANUAL, 0);
+    
+    // net_if_ipv4_set_netmask_by_addr(ap_iface, &ipv4_addr, &netmask);
+
+    // net_if_ipv4_set_gw(ap_iface, &gateway);
 
 #if CONFIG_WIFI_SAMPLE_DHCPV4_START
     enable_dhcpv4_server();
@@ -211,11 +238,10 @@ static int connect_to_wifi(void)
         LOG_ERR("Hata: Geçersiz Ağ Geçidi");
         return -EINVAL;
     }
-
-    sta_config.ssid = (const uint8_t *)CONFIG_WIFI_SAMPLE_SSID;
-    sta_config.ssid_length = sizeof(CONFIG_WIFI_SAMPLE_SSID) - 1;
-    sta_config.psk = (const uint8_t *)CONFIG_WIFI_SAMPLE_PSK;
-    sta_config.psk_length = sizeof(CONFIG_WIFI_SAMPLE_PSK) - 1;
+    sta_config.ssid = get_current_ssid();
+    sta_config.ssid_length = get_current_ssid_len();
+    sta_config.psk = get_current_psk();
+    sta_config.psk_length = get_current_psk_len();
     sta_config.security = WIFI_SECURITY_TYPE_PSK;
     sta_config.channel = WIFI_CHANNEL_ANY;
     sta_config.band = WIFI_FREQ_BAND_2_4_GHZ;
@@ -275,7 +301,7 @@ void wifi_connect(void)
 
     sta_iface = net_if_get_wifi_sta();
 
-    //enable_ap_mode();
-    connect_to_wifi();
+    enable_ap_mode();
+    //connect_to_wifi();
 }
 

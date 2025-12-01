@@ -24,16 +24,18 @@ use portable_atomic::{AtomicF32, AtomicU16, Ordering};
 //use core::{sync::atomic::AtomicU16, sync::atomic::Ordering};
 
 use crate::mg::{Mongoose, MongooseEvent};
+use crate::wifi::{write_wifi_credentials, Wifi};
 use canbus::CanBus;
 use display_io::Display;
+use eeprom_int::EepromInt;
 use modbus_slave::ModbusSlave;
 use pin::{GlobalPin, Pin};
 use sht21::Sht21;
-use wifi::Wifi;
 
 mod button;
 mod canbus;
 mod display_io;
+mod eeprom_int;
 mod mg;
 mod modbus_slave;
 mod pin;
@@ -119,6 +121,42 @@ async fn canbus_task(can: CanBus) {
     }
 }
 //====================================================================================
+pub fn save_wifi_config(ssid_str: &str, psk_str: &str) -> bool {
+    type SsidBuf = [u8; 33]; // 32 karakter + '\0'
+    type PskBuf = [u8; 65]; // 64 karakter + '\0'
+    let mut ssid_buf: SsidBuf = [0; 33];
+    let mut psk_buf: PskBuf = [0; 65];
+
+    let ssid_bytes = ssid_str.as_bytes();
+    let psk_bytes = psk_str.as_bytes();
+
+    if ssid_bytes.len() > 32 || psk_bytes.len() > 64 {
+        log::error!("SSID veya PSK çok uzun! (max 32/64)");
+        return false;
+    }
+
+    ssid_buf[..ssid_bytes.len()].copy_from_slice(ssid_bytes);
+    psk_buf[..psk_bytes.len()].copy_from_slice(psk_bytes);
+
+    let mut eeprom_buf = [0u8; 98];
+
+    eeprom_buf[0] = ssid_bytes.len() as u8;
+    eeprom_buf[1..1 + ssid_bytes.len()].copy_from_slice(ssid_bytes);
+
+    eeprom_buf[33] = psk_bytes.len() as u8;
+    eeprom_buf[34..34 + psk_bytes.len()].copy_from_slice(psk_bytes);
+
+    let eeprom = EepromInt::new();
+    if eeprom.write(0, &eeprom_buf).is_ok() {
+        log::info!("WiFi ayarları kaydedildi: \"{}\"", ssid_str);
+        embassy_time::block_for(embassy_time::Duration::from_secs(2));
+        true
+    } else {
+        log::error!("EEPROM yazma hatası!");
+        false
+    }
+}
+//====================================================================================
 #[embassy_executor::task]
 async fn mg_event_task(mg: Mongoose) {
     let red_led_pin = RED_LED_PIN.get();
@@ -135,6 +173,7 @@ async fn mg_event_task(mg: Mongoose) {
             }
             MongooseEvent::NetworkSettingsChanged(_net) => {
                 log::warn!("Network ayarları değişti.");
+                //save_wifi_config("COSKUN_5GHZ", "deneme123");
             }
             MongooseEvent::SettingsChanged(_s) => {
                 log::warn!("Settings değişti");
@@ -194,6 +233,8 @@ extern "C" fn rust_main() {
 
     log::info!("Restart!!!\r\n");
 
+    let eeprom = EepromInt::new();
+
     RED_LED_PIN.init(Pin::new(
         zephyr::devicetree::labels::red_led::get_instance().expect("my_red_led not found!"),
     ));
@@ -221,6 +262,23 @@ extern "C" fn rust_main() {
     // modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     // modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
     // modbus_vcp.mb_add_holding_reg(&mut local_reg, 2);
+
+    let eeprom = EepromInt::new();
+
+    let test_value = 35 * 32768;
+    match eeprom.write(0, &test_value) {
+        Ok(()) => log::error!("Eeprom data was write succesfly {:?}", test_value),
+        Err(e) => log::error!("Eeprom data write failure! error: {}", e),
+    };
+
+    let mut eeprom_value: i32 = match eeprom.read(0) {
+        Ok(bytes) => {
+            let value = i32::from_le_bytes(bytes);
+            log::error!("EEPROM'dan okundu: {value}");
+            value
+        }
+        Err(_) => 0,
+    };
 
     let executor = EXECUTOR_MAIN.init(Executor::new());
     executor.run(|spawner| {

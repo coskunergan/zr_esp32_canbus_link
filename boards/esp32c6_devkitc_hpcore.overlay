@@ -60,6 +60,17 @@
 				<&aux_display_gpio 6 (GPIO_ACTIVE_HIGH)>,
 				<&aux_display_gpio 7 (GPIO_ACTIVE_HIGH)>;
 	};		
+	eeprom1: eeprom1 {
+		status = "okay";
+		compatible = "zephyr,emu-eeprom";
+		size = <DT_SIZE_K(4)>;
+		pagesize = <DT_SIZE_K(8)>;
+	 	partition = <&storage_partition>;
+	 	rambuf;
+	};	
+	aliases {		
+		eeprom-1 = &eeprom1;
+	};	
 };
 
 &pinctrl {    
