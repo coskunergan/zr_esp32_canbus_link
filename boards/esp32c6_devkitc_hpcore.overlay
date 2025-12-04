@@ -71,6 +71,10 @@
 	aliases {		
 		eeprom-1 = &eeprom1;
 	};	
+	wifi_ap: wifi_ap {
+		compatible = "espressif,esp32-wifi";
+		status = "okay";
+	};	
 };
 
 &pinctrl {    

@@ -246,9 +246,9 @@ static int connect_to_wifi(void)
     sta_config.channel = WIFI_CHANNEL_ANY;
     sta_config.band = WIFI_FREQ_BAND_2_4_GHZ;
 
-    net_if_ipv4_addr_add(sta_iface, &ipv4_addr, NET_ADDR_MANUAL, 0);
+    // net_if_ipv4_addr_add(sta_iface, &ipv4_addr, NET_ADDR_MANUAL, 0);
 
-    net_if_ipv4_set_gw(sta_iface, &gateway);
+    // net_if_ipv4_set_gw(sta_iface, &gateway);
 
     LOG_INF("Connecting to SSID: %s\n", sta_config.ssid);
 
@@ -294,6 +294,8 @@ static int connect_to_wifi(void)
 
 void wifi_connect(void)
 {
+    k_sleep(K_MSEC(1000));
+
     net_mgmt_init_event_callback(&cb, wifi_event_handler, NET_EVENT_WIFI_MASK);
     net_mgmt_add_event_callback(&cb);
 
@@ -302,6 +304,6 @@ void wifi_connect(void)
     sta_iface = net_if_get_wifi_sta();
 
     enable_ap_mode();
-    //connect_to_wifi();
+    connect_to_wifi();
 }
 
