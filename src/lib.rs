@@ -59,6 +59,43 @@ const VERSION_MINOR: &str = env!("VERSION_MINOR");
 const PATCHLEVEL: &str = env!("PATCHLEVEL");
 const EXTRAVERSION: &str = env!("EXTRAVERSION");
 
+
+//=========================NAT==============================
+//=========================NAT==============================
+//=========================NAT==============================
+pub mod ffi;
+pub mod nat;
+pub mod packet;
+
+use nat::NatTable;
+
+/// Global NAT table instance
+static mut NAT_TABLE: Option<NatTable> = None;
+
+/// Initialize the NAT subsystem
+#[no_mangle]
+pub extern "C" fn rust_nat_init() -> i32 {
+    unsafe {
+        if NAT_TABLE.is_some() {
+            return -1; // Already initialized
+        }
+        
+        NAT_TABLE = Some(NatTable::new());
+        0
+    }
+}
+
+/// Get reference to NAT table
+fn get_nat_table() -> Option<&'static mut NatTable> {
+    unsafe { NAT_TABLE.as_mut() }
+}
+
+//=========================NAT==============================
+//=========================NAT==============================
+//=========================NAT==============================
+
+
+
 //====================================================================================
 //====================================================================================
 #[embassy_executor::task]
@@ -233,7 +270,7 @@ extern "C" fn rust_main() {
 
     log::info!("Restart!!!\r\n");
 
-    let eeprom = EepromInt::new();
+    // let eeprom = EepromInt::new();
 
     RED_LED_PIN.init(Pin::new(
         zephyr::devicetree::labels::red_led::get_instance().expect("my_red_led not found!"),
@@ -245,6 +282,8 @@ extern "C" fn rust_main() {
         zephyr::devicetree::labels::blue_led::get_instance().expect("my_blue_led not found!"),
     ));
 
+    // save_wifi_config("SUPERONLINE_Wi-Fi_3AS4", "K7Q3SKzKC7QN");
+
     Wifi::wifi_connect();
 
     let mut local_reg = 0x123;
@@ -253,38 +292,38 @@ extern "C" fn rust_main() {
     canbus.set_data_callback(receive_callback);
 
     // let modbus_vcp = ModbusSlave::new("modbus0\0");
-    let modbus = ModbusSlave::new("modbus1\0");
+    // let modbus = ModbusSlave::new("modbus1\0");
 
-    modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
-    modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
-    modbus.mb_add_holding_reg(&mut local_reg, 2);
+    // modbus.mb_add_holding_reg(COUNTER.as_ptr(), 0);
+    // modbus.mb_add_holding_reg(REGISTER.as_ptr(), 1);
+    // modbus.mb_add_holding_reg(&mut local_reg, 2);
 
     // modbus_vcp.mb_add_holding_reg(COUNTER.as_ptr(), 0);
     // modbus_vcp.mb_add_holding_reg(REGISTER.as_ptr(), 1);
     // modbus_vcp.mb_add_holding_reg(&mut local_reg, 2);
 
-    let eeprom = EepromInt::new();
+    // let eeprom = EepromInt::new();
 
-    let test_value = 35 * 32768;
-    match eeprom.write(0, &test_value) {
-        Ok(()) => log::error!("Eeprom data was write succesfly {:?}", test_value),
-        Err(e) => log::error!("Eeprom data write failure! error: {}", e),
-    };
+    // let test_value = 35 * 32768;
+    // match eeprom.write(0, &test_value) {
+    //     Ok(()) => log::error!("Eeprom data was write succesfly {:?}", test_value),
+    //     Err(e) => log::error!("Eeprom data write failure! error: {}", e),
+    // };
 
-    let mut eeprom_value: i32 = match eeprom.read(0) {
-        Ok(bytes) => {
-            let value = i32::from_le_bytes(bytes);
-            log::error!("EEPROM'dan okundu: {value}");
-            value
-        }
-        Err(_) => 0,
-    };
+    // let mut eeprom_value: i32 = match eeprom.read(0) {
+    //     Ok(bytes) => {
+    //         let value = i32::from_le_bytes(bytes);
+    //         log::error!("EEPROM'dan okundu: {value}");
+    //         value
+    //     }
+    //     Err(_) => 0,
+    // };
 
     let executor = EXECUTOR_MAIN.init(Executor::new());
     executor.run(|spawner| {
-        spawner.spawn(led_task(spawner)).unwrap();
+        // spawner.spawn(led_task(spawner)).unwrap();
         spawner.spawn(mg_task(spawner)).unwrap();
-        spawner.spawn(canbus_task(canbus)).unwrap();
+        // spawner.spawn(canbus_task(canbus)).unwrap();
     })
 }
 //====================================================================================

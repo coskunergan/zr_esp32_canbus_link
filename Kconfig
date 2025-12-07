@@ -17,10 +17,11 @@ config SAMPLE_RX_THREAD_PRIORITY
 	  Priority used for the RX threads.
 
 if WIFI
-
-config WIFI_SAMPLE_DHCPV4_START
-	int "WIFI_SAMPLE_DHCPV4_START"
-	default 1
+config NET_IPV4_FORWARDING
+    bool "IPv4 forwarding"
+    default y
+    help
+      Enable IPv4 forwarding for AP-STA mode.
 
 config WIFI_SAMPLE_AP_IP_ADDRESS
 	string "CONFIG_WIFI_SAMPLE_AP_IP_ADDRESS - Network IP"

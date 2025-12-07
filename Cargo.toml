@@ -19,6 +19,7 @@ portable-atomic = { version = "1.9", features = ["float", "require-cas"] }
 log = "0.4.22"
 static_cell = "2.1"
 heapless = "0.8"
+cty = "0.2"
 
 [dependencies.embassy-executor]
 version = "0.7.0"
