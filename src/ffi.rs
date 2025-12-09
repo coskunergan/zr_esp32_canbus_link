@@ -64,6 +64,18 @@ pub struct UdpHdr {
     pub chksum: u16,   // Checksum
 }
 
+#[cfg(CONFIG_TIMEOUT_64BIT)]
+pub type KtickT = i64;
+
+#[cfg(not(CONFIG_TIMEOUT_64BIT))]
+pub type KtickT = u32;
+
+#[cfg(CONFIG_TIMEOUT_64BIT)]
+pub const K_TICKS_FOREVER: KtickT = -1;
+
+#[cfg(not(CONFIG_TIMEOUT_64BIT))]
+pub const K_TICKS_FOREVER: KtickT = KtickT::MAX;
+
 extern "C" {
     /// Get packet buffer pointer (direct access)
     pub fn net_pkt_get_buffer(pkt: *mut NetPkt) -> *mut u8;
@@ -78,10 +90,22 @@ extern "C" {
     pub fn net_pkt_get_len(pkt: *const NetPkt) -> usize;
 
     /// Get packet interface
-    pub fn net_pkt_iface(pkt: *const NetPkt) -> *mut NetIf;
+    pub fn ffi_net_pkt_iface(pkt: *const NetPkt) -> *mut NetIf;
+
+    /// Set packet interface
+    pub fn ffi_net_pkt_set_iface(pkt: *mut NetPkt, iface: *mut NetIf);
+
+    /// Get interface by index (for lookup)
+    pub fn net_if_get_by_index(index: i32) -> *mut NetIf;
 
     /// Set packet data (after modification)
     pub fn net_pkt_set_data(pkt: *mut NetPkt, access: *mut c_void) -> i32;
+
+    /// packet send interface
+    pub fn net_try_send_data(pkt: *mut NetPkt, timeout: KtickT) -> i32;
+
+    /// time interface
+    pub fn ffi_k_uptime_get_32() -> u32;
 }
 
 // Helper to convert u16 between network and host byte order

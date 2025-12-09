@@ -1,97 +1,88 @@
-//! Packet manipulation helpers
+//! packet.rs
 
+use crate::ffi::NetIf;
 use crate::ffi::*;
+use crate::nat::checksum::{ip_checksum, update_checksum};
 use core::mem;
 use core::ptr;
 
+#[derive(Clone, Copy)]
 pub struct PacketContext {
     pub ip_hdr: Ipv4Hdr,
     pub src_port: u16,
     pub dst_port: u16,
     pub needs_update: bool,
+    pub iface: *mut NetIf,
+    pub orig_iface: *mut NetIf,
 }
 
 impl PacketContext {
-    /// Parse packet from Zephyr net_pkt (SAFE VERSION)
     pub fn from_pkt(pkt: *mut NetPkt) -> Option<Self> {
         if pkt.is_null() {
-            log::error!("[NAT] ERROR: pkt is null\n");
             return None;
         }
 
         unsafe {
-            // Get raw packet buffer pointer
+            let iface = ffi_net_pkt_iface(pkt);
             let buf_ptr = net_pkt_get_buffer(pkt);
             if buf_ptr.is_null() {
                 return None;
             }
 
-            // Read IPv4 header (aligned read)
-            let ip_hdr_slice = core::slice::from_raw_parts(buf_ptr, mem::size_of::<Ipv4Hdr>());
-            let mut ip_hdr = Ipv4Hdr {
-                vhl: 0,
-                tos: 0,
-                len: [0; 2],
-                id: [0; 2],
-                offset: [0; 2],
-                ttl: 0,
-                proto: 0,
-                chksum: 0,
-                src: [0; 4],
-                dst: [0; 4],
-            };
-
-            // Safely copy header bytes
-            if ip_hdr_slice.len() < mem::size_of::<Ipv4Hdr>() {
+            let min_slice = core::slice::from_raw_parts(buf_ptr, 20);
+            if min_slice.len() < 20 {
                 return None;
             }
 
-            // Manually parse to avoid alignment issues
-            ip_hdr.vhl = ip_hdr_slice[0];
-            ip_hdr.tos = ip_hdr_slice[1];
-            ip_hdr.len[0] = ip_hdr_slice[2];
-            ip_hdr.len[1] = ip_hdr_slice[3];
-            ip_hdr.id[0] = ip_hdr_slice[4];
-            ip_hdr.id[1] = ip_hdr_slice[5];
-            ip_hdr.offset[0] = ip_hdr_slice[6];
-            ip_hdr.offset[1] = ip_hdr_slice[7];
-            ip_hdr.ttl = ip_hdr_slice[8];
-            ip_hdr.proto = ip_hdr_slice[9];
-            ip_hdr.chksum = u16::from_be_bytes([ip_hdr_slice[10], ip_hdr_slice[11]]);
-            ip_hdr.src.copy_from_slice(&ip_hdr_slice[12..16]);
-            ip_hdr.dst.copy_from_slice(&ip_hdr_slice[16..20]);
-
-            // Validate header
-            if (ip_hdr.vhl >> 4) != 4 {
-                // Not IPv4
+            let vhl = min_slice[0];
+            if vhl >> 4 != 4 {
                 return None;
             }
 
-            // Calculate header length
-            let ihl = (ip_hdr.vhl & 0x0F) as usize * 4;
+            let ihl = ((vhl & 0x0F) as usize) * 4;
             if ihl < 20 || ihl > 60 {
-                // Invalid IHL
                 return None;
             }
 
-            // Get transport layer header
-            let l4_offset = ihl;
-            let l4_slice = core::slice::from_raw_parts(buf_ptr.add(l4_offset), 8);
+            let full_hdr = core::slice::from_raw_parts(buf_ptr, ihl);
+            if full_hdr.len() < ihl {
+                return None;
+            }
+
+            let ip_hdr = Ipv4Hdr {
+                vhl,
+                tos: full_hdr[1],
+                len: [full_hdr[2], full_hdr[3]],
+                id: [full_hdr[4], full_hdr[5]],
+                offset: [full_hdr[6], full_hdr[7]],
+                ttl: full_hdr[8],
+                proto: full_hdr[9],
+                chksum: u16::from_be_bytes([full_hdr[10], full_hdr[11]]),
+                src: [full_hdr[12], full_hdr[13], full_hdr[14], full_hdr[15]],
+                dst: [full_hdr[16], full_hdr[17], full_hdr[18], full_hdr[19]],
+            };
 
             let (src_port, dst_port) = match ip_hdr.proto {
                 6 | 17 => {
-                    // TCP or UDP - both have ports at same offset
-                    if l4_slice.len() < 4 {
-                        return None;
+                    let l4 = core::slice::from_raw_parts(buf_ptr.add(ihl), 4);
+                    if l4.len() >= 4 {
+                        (
+                            u16::from_be_bytes([l4[0], l4[1]]),
+                            u16::from_be_bytes([l4[2], l4[3]]),
+                        )
+                    } else {
+                        (0, 0)
                     }
-                    let src = u16::from_be_bytes([l4_slice[0], l4_slice[1]]);
-                    let dst = u16::from_be_bytes([l4_slice[2], l4_slice[3]]);
-                    (src, dst)
                 }
-                _ => {
-                    // Other protocols (ICMP, etc.)
-                    (0, 0)
+                1 => {
+                    let l4 = core::slice::from_raw_parts(buf_ptr.add(ihl), 8);
+                    if l4.len() >= 8 {
+                        (u16::from_be_bytes([l4[4], l4[5]]), 0)
+                    } else {
+                        (0, 0)
+                    }
                 }
+                _ => (0, 0),
             };
 
             Some(Self {
@@ -99,63 +90,158 @@ impl PacketContext {
                 src_port,
                 dst_port,
                 needs_update: false,
+                iface,
+                orig_iface: iface,
             })
         }
     }
 
-    /// Apply changes back to packet (SAFE VERSION)
-    pub fn apply_to_pkt(&self, pkt: *mut NetPkt) {
-        if !self.needs_update || pkt.is_null() {
+    pub fn apply_to_pkt(&mut self, pkt: *mut NetPkt) {
+        if pkt.is_null() || !self.needs_update {
             return;
         }
 
         unsafe {
+            if !self.iface.is_null() && self.iface != self.orig_iface {
+                ffi_net_pkt_set_iface(pkt, self.iface);
+            }
+
             let buf_ptr = net_pkt_get_buffer(pkt);
             if buf_ptr.is_null() {
                 return;
             }
 
-            // Update IP header fields
-            let ip_slice = core::slice::from_raw_parts_mut(buf_ptr, 20);
+            let ihl = ((self.ip_hdr.vhl & 0x0F) as usize) * 4;
 
-            ip_slice[0] = self.ip_hdr.vhl;
-            ip_slice[1] = self.ip_hdr.tos;
-            ip_slice[2] = self.ip_hdr.len[0];
-            ip_slice[3] = self.ip_hdr.len[1];
-            ip_slice[4] = self.ip_hdr.id[0];
-            ip_slice[5] = self.ip_hdr.id[1];
-            ip_slice[6] = self.ip_hdr.offset[0];
-            ip_slice[7] = self.ip_hdr.offset[1];
-            ip_slice[8] = self.ip_hdr.ttl;
-            ip_slice[9] = self.ip_hdr.proto;
+            let old_src_ip = *(buf_ptr.add(12) as *const [u8; 4]);
+            let old_dst_ip = *(buf_ptr.add(16) as *const [u8; 4]);
 
-            // Checksum (leave as is for now, will recalculate later)
-            let chksum_bytes = self.ip_hdr.chksum.to_be_bytes();
-            ip_slice[10] = chksum_bytes[0];
-            ip_slice[11] = chksum_bytes[1];
+            ptr::copy_nonoverlapping(self.ip_hdr.src.as_ptr(), buf_ptr.add(12), 4);
+            ptr::copy_nonoverlapping(self.ip_hdr.dst.as_ptr(), buf_ptr.add(16), 4);
 
-            ip_slice[12..16].copy_from_slice(&self.ip_hdr.src);
-            ip_slice[16..20].copy_from_slice(&self.ip_hdr.dst);
+            // === IP Checksum  ===
+            if old_src_ip != self.ip_hdr.src || old_dst_ip != self.ip_hdr.dst {
+                let ip_hdr_full = core::slice::from_raw_parts_mut(buf_ptr, ihl);
+                ip_hdr_full[10] = 0;
+                ip_hdr_full[11] = 0;
+                let csum = ip_checksum(&ip_hdr_full[..ihl]);
+                ip_hdr_full[10] = (csum >> 8) as u8;
+                ip_hdr_full[11] = csum as u8;
+            }
 
-            // Update transport header ports
-            let ihl = (self.ip_hdr.vhl & 0x0F) as usize * 4;
-            let l4_slice = core::slice::from_raw_parts_mut(buf_ptr.add(ihl), 4);
+            // === Transport Layer (TCP/UDP) ===
+            let l4_ptr = buf_ptr.add(ihl);
 
             match self.ip_hdr.proto {
-                6 | 17 => {
-                    // TCP or UDP
-                    let src_bytes = self.src_port.to_be_bytes();
-                    let dst_bytes = self.dst_port.to_be_bytes();
+                6 => {
+                    // TCP
+                    let tcp_hdr = core::slice::from_raw_parts_mut(l4_ptr, 20);
+                    if tcp_hdr.len() < 20 {
+                        return;
+                    }
 
-                    l4_slice[0] = src_bytes[0];
-                    l4_slice[1] = src_bytes[1];
-                    l4_slice[2] = dst_bytes[0];
-                    l4_slice[3] = dst_bytes[1];
+                    let old_src_port = u16::from_be_bytes([tcp_hdr[0], tcp_hdr[1]]);
+                    let old_dst_port = u16::from_be_bytes([tcp_hdr[2], tcp_hdr[3]]);
+                    let mut csum = u16::from_be_bytes([tcp_hdr[16], tcp_hdr[17]]);
+
+                    tcp_hdr[0..2].copy_from_slice(&self.src_port.to_be_bytes());
+                    tcp_hdr[2..4].copy_from_slice(&self.dst_port.to_be_bytes());
+
+                    macro_rules! update16 {
+                        ($old:expr, $new:expr) => {
+                            if $old != $new {
+                                csum = update_checksum(csum, $old, $new);
+                            }
+                        };
+                    }
+
+                    update16!(old_src_port, self.src_port);
+                    update16!(old_dst_port, self.dst_port);
+
+                    let old_src_hi = u16::from_be_bytes([old_src_ip[0], old_src_ip[1]]);
+                    let old_src_lo = u16::from_be_bytes([old_src_ip[2], old_src_ip[3]]);
+                    let new_src_hi = u16::from_be_bytes([self.ip_hdr.src[0], self.ip_hdr.src[1]]);
+                    let new_src_lo = u16::from_be_bytes([self.ip_hdr.src[2], self.ip_hdr.src[3]]);
+
+                    let old_dst_hi = u16::from_be_bytes([old_dst_ip[0], old_dst_ip[1]]);
+                    let old_dst_lo = u16::from_be_bytes([old_dst_ip[2], old_dst_ip[3]]);
+                    let new_dst_hi = u16::from_be_bytes([self.ip_hdr.dst[0], self.ip_hdr.dst[1]]);
+                    let new_dst_lo = u16::from_be_bytes([self.ip_hdr.dst[2], self.ip_hdr.dst[3]]);
+
+                    if old_src_ip != self.ip_hdr.src {
+                        update16!(old_src_hi, new_src_hi);
+                        update16!(old_src_lo, new_src_lo);
+                    }
+                    if old_dst_ip != self.ip_hdr.dst {
+                        update16!(old_dst_hi, new_dst_hi);
+                        update16!(old_dst_lo, new_dst_lo);
+                    }
+
+                    tcp_hdr[16..18].copy_from_slice(&csum.to_be_bytes());
                 }
+
+                17 => {
+                    // UDP
+                    let udp_hdr = core::slice::from_raw_parts_mut(l4_ptr, 8);
+                    if udp_hdr.len() < 8 {
+                        return;
+                    }
+
+                    let old_src_port = u16::from_be_bytes([udp_hdr[0], udp_hdr[1]]);
+                    let old_dst_port = u16::from_be_bytes([udp_hdr[2], udp_hdr[3]]);
+                    let mut csum = u16::from_be_bytes([udp_hdr[6], udp_hdr[7]]);
+
+                    udp_hdr[0..2].copy_from_slice(&self.src_port.to_be_bytes());
+                    udp_hdr[2..4].copy_from_slice(&self.dst_port.to_be_bytes());
+
+                    // Eğer orijinal checksum 0 değilse, incremental update yap
+                    if csum != 0 {
+                        macro_rules! update16 {
+                            ($old:expr, $new:expr) => {
+                                if $old != $new {
+                                    csum = update_checksum(csum, $old, $new);
+                                }
+                            };
+                        }
+
+                        update16!(old_src_port, self.src_port);
+                        update16!(old_dst_port, self.dst_port);
+
+                        // Pseudo başlık güncellemesi
+                        let old_src_hi = u16::from_be_bytes([old_src_ip[0], old_src_ip[1]]);
+                        let old_src_lo = u16::from_be_bytes([old_src_ip[2], old_src_ip[3]]);
+                        let new_src_hi =
+                            u16::from_be_bytes([self.ip_hdr.src[0], self.ip_hdr.src[1]]);
+                        let new_src_lo =
+                            u16::from_be_bytes([self.ip_hdr.src[2], self.ip_hdr.src[3]]);
+
+                        let old_dst_hi = u16::from_be_bytes([old_dst_ip[0], old_dst_ip[1]]);
+                        let old_dst_lo = u16::from_be_bytes([old_dst_ip[2], old_dst_ip[3]]);
+                        let new_dst_hi =
+                            u16::from_be_bytes([self.ip_hdr.dst[0], self.ip_hdr.dst[1]]);
+                        let new_dst_lo =
+                            u16::from_be_bytes([self.ip_hdr.dst[2], self.ip_hdr.dst[3]]);
+
+                        if old_src_ip != self.ip_hdr.src {
+                            update16!(old_src_hi, new_src_hi);
+                            update16!(old_src_lo, new_src_lo);
+                        }
+                        if old_dst_ip != self.ip_hdr.dst {
+                            update16!(old_dst_hi, new_dst_hi);
+                            update16!(old_dst_lo, new_dst_lo);
+                        }
+
+                        udp_hdr[6..8].copy_from_slice(&csum.to_be_bytes());
+                    } else {
+                        // Orijinal checksum 0 ise, IPv4'te checksum isteğe bağlıdır
+                        // Portları değiştirdik ama checksum 0 olarak kalabilir
+                        // Hiçbir şey yapmaya gerek yok
+                    }                    
+                }
+
                 _ => {}
             }
 
-            // Mark packet as modified
             net_pkt_set_modified(pkt);
         }
     }

@@ -304,8 +304,8 @@ static void ip_config_work_handler(struct k_work *work)
     setup_nat_simple();
     #endif
     
-    k_sleep(K_MSEC(2000));
-    test_router_connectivity_socket();
+    // k_sleep(K_MSEC(2000));
+    // test_router_connectivity_socket();
 }
 
 // Olay işleyici imzası korundu, uyarıya rağmen linker hatası vermez.
