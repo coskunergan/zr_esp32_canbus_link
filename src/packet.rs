@@ -1,4 +1,6 @@
-//! packet.rs
+// Copyright (c) 2025
+// SPDX-License-Identifier: Apache-2.0
+// Coskun ERGAN <coskunergan@gmail.com>
 
 use crate::ffi::NetIf;
 use crate::ffi::*;
@@ -236,7 +238,7 @@ impl PacketContext {
                         // Orijinal checksum 0 ise, IPv4'te checksum isteğe bağlıdır
                         // Portları değiştirdik ama checksum 0 olarak kalabilir
                         // Hiçbir şey yapmaya gerek yok
-                    }                    
+                    }
                 }
 
                 _ => {}

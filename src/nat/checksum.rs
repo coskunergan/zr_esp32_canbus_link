@@ -1,4 +1,6 @@
-//! IP/TCP/UDP checksum calculation
+// Copyright (c) 2025
+// SPDX-License-Identifier: Apache-2.0
+// Coskun ERGAN <coskunergan@gmail.com>
 
 /// Calculate IP header checksum
 pub fn ip_checksum(data: &[u8]) -> u16 {

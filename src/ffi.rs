@@ -1,4 +1,6 @@
-//! FFI bindings to Zephyr C structures
+// Copyright (c) 2025
+// SPDX-License-Identifier: Apache-2.0
+// Coskun ERGAN <coskunergan@gmail.com>
 
 use core::ffi::c_void;
 

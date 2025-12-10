@@ -59,7 +59,6 @@ const VERSION_MINOR: &str = env!("VERSION_MINOR");
 const PATCHLEVEL: &str = env!("PATCHLEVEL");
 const EXTRAVERSION: &str = env!("EXTRAVERSION");
 
-
 //=========================NAT==============================
 //=========================NAT==============================
 //=========================NAT==============================
@@ -79,7 +78,7 @@ pub extern "C" fn rust_nat_init() -> i32 {
         if NAT_TABLE.is_some() {
             return -1; // Already initialized
         }
-        
+
         NAT_TABLE = Some(NatTable::new());
         0
     }
@@ -93,8 +92,6 @@ fn get_nat_table() -> Option<&'static mut NatTable> {
 //=========================NAT==============================
 //=========================NAT==============================
 //=========================NAT==============================
-
-
 
 //====================================================================================
 //====================================================================================
@@ -245,7 +242,7 @@ async fn mg_task(spawner: Spawner) {
     spawner.spawn(mg_event_task(mg)).unwrap();
 
     loop {
-        Timer::after(Duration::from_millis(1)).await;
+        Timer::after(Duration::from_millis(100)).await;
         mg.mg_poll();
         mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
         mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
@@ -266,7 +263,7 @@ fn receive_callback(data: &[u8]) {
 //====================================================================================
 #[no_mangle]
 extern "C" fn rust_main() {
-    let _ = usage::set_logger();
+    // let _ = usage::set_logger();
 
     log::info!("Restart!!!\r\n");
 

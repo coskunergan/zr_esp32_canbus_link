@@ -1,4 +1,6 @@
-//! NAT core implementation
+// Copyright (c) 2025
+// SPDX-License-Identifier: Apache-2.0
+// Coskun ERGAN <coskunergan@gmail.com>
 
 pub mod checksum;
 pub mod entry;
@@ -45,8 +47,8 @@ pub extern "C" fn rust_nat_outbound(pkt: *mut NetPkt) -> i32 {
                 ctx.apply_to_pkt(pkt);
                 // unsafe {
                 //     net_try_send_data(pkt, K_TICKS_FOREVER);
-                // }     
-                return 1           
+                // }
+                return 1;
             } else {
                 log::info!("[NAT] outbound: No changes needed, packet unchanged");
             }
@@ -91,7 +93,7 @@ pub extern "C" fn rust_nat_inbound(pkt: *mut NetPkt) -> i32 {
             if ctx.needs_update {
                 log::warn!("[NAT] inbound: Applying changes to packet");
                 ctx.apply_to_pkt(pkt);
-                return 1
+                return 1;
             } else {
                 log::info!("[NAT] inbound: No changes needed, packet unchanged");
             }

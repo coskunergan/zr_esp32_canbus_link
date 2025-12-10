@@ -1,4 +1,6 @@
-//! NAT connection table
+// Copyright (c) 2025
+// SPDX-License-Identifier: Apache-2.0
+// Coskun ERGAN <coskunergan@gmail.com>
 
 use super::entry::{NatEntry, Protocol};
 use crate::ffi::*;
@@ -6,7 +8,7 @@ use crate::nat::NetIf;
 use crate::packet::PacketContext;
 use heapless::Vec;
 
-const MAX_NAT_ENTRIES: usize = 64;
+const MAX_NAT_ENTRIES: usize = 32;
 const NAT_TIMEOUT_MS: u32 = 30000; // 30sec
 const PORT_RANGE_START: u16 = 50000;
 const PORT_RANGE_END: u16 = 65535;

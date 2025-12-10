@@ -22,7 +22,7 @@ fn get_default_ssid() -> String<32> {
         let _ = s.push_str(text);
     }
     if s.is_empty() {
-        let _ = s.push_str("MyWiFi"); 
+        let _ = s.push_str("MyWiFi");
     }
     s
 }
