@@ -43,19 +43,19 @@ pub extern "C" fn rust_nat_outbound(pkt: *mut NetPkt) -> i32 {
         Ok(_) => {
             // *** CRITICAL: Only apply if needs_update is true ***
             if ctx.needs_update {
-                log::warn!("[NAT] outbound: Applying changes to packet");
+                //log::info!("[NAT] outbound: Applying changes to packet");
                 ctx.apply_to_pkt(pkt);
                 // unsafe {
                 //     net_try_send_data(pkt, K_TICKS_FOREVER);
                 // }
                 return 1;
             } else {
-                log::info!("[NAT] outbound: No changes needed, packet unchanged");
+                //log::info!("[NAT] outbound: No changes needed, packet unchanged");
             }
             0
         }
         Err(_) => {
-            log::error!("[NAT] outbound: translation failed");
+            //log::error!("[NAT] outbound: translation failed");
             -1
         }
     }
@@ -91,17 +91,17 @@ pub extern "C" fn rust_nat_inbound(pkt: *mut NetPkt) -> i32 {
         Ok(_) => {
             // *** CRITICAL: Only apply if needs_update is true ***
             if ctx.needs_update {
-                log::warn!("[NAT] inbound: Applying changes to packet");
+                //log::info!("[NAT] inbound: Applying changes to packet");
                 ctx.apply_to_pkt(pkt);
                 return 1;
             } else {
-                log::info!("[NAT] inbound: No changes needed, packet unchanged");
+                //log::info!("[NAT] inbound: No changes needed, packet unchanged");
             }
             0
         }
         Err(_) => {
             // This is OK for inbound - no matching NAT entry
-            log::info!("[NAT] inbound: no matching NAT entry (OK for new connections)");
+            //log::info!("[NAT] inbound: no matching NAT entry (OK for new connections)");
             0 // ← Return 0, not -1!
         }
     }

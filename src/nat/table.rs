@@ -8,7 +8,7 @@ use crate::nat::NetIf;
 use crate::packet::PacketContext;
 use heapless::Vec;
 
-const MAX_NAT_ENTRIES: usize = 32;
+const MAX_NAT_ENTRIES: usize = 64;
 const NAT_TIMEOUT_MS: u32 = 30000; // 30sec
 const PORT_RANGE_START: u16 = 50000;
 const PORT_RANGE_END: u16 = 65535;
@@ -143,30 +143,30 @@ impl NatTable {
         let src_internal = self.is_internal_ip(&ctx.ip_hdr.src);
         let dst_internal = self.is_internal_ip(&ctx.ip_hdr.dst);
 
-        log::info!(
-            "[NAT OUT] proto={} src={}.{}.{}.{}:{} dst={}.{}.{}.{}:{} iface={:p}",
-            ctx.ip_hdr.proto,
-            ctx.ip_hdr.src[0],
-            ctx.ip_hdr.src[1],
-            ctx.ip_hdr.src[2],
-            ctx.ip_hdr.src[3],
-            ctx.src_port,
-            ctx.ip_hdr.dst[0],
-            ctx.ip_hdr.dst[1],
-            ctx.ip_hdr.dst[2],
-            ctx.ip_hdr.dst[3],
-            ctx.dst_port,
-            ctx.iface
-        );
+        // log::info!(
+        //     "[NAT OUT] proto={} src={}.{}.{}.{}:{} dst={}.{}.{}.{}:{} iface={:p}",
+        //     ctx.ip_hdr.proto,
+        //     ctx.ip_hdr.src[0],
+        //     ctx.ip_hdr.src[1],
+        //     ctx.ip_hdr.src[2],
+        //     ctx.ip_hdr.src[3],
+        //     ctx.src_port,
+        //     ctx.ip_hdr.dst[0],
+        //     ctx.ip_hdr.dst[1],
+        //     ctx.ip_hdr.dst[2],
+        //     ctx.ip_hdr.dst[3],
+        //     ctx.dst_port,
+        //     ctx.iface
+        // );
 
         // Policy checks
         if !src_internal {
-            log::info!("[NAT OUT] ✓ PASS-THROUGH: Source not internal");
+            // log::info!("[NAT OUT] ✓ PASS-THROUGH: Source not internal");
             return Ok(());
         }
 
         if dst_internal {
-            log::info!("[NAT OUT] ✓ PASS-THROUGH: Destination is internal");
+            // log::info!("[NAT OUT] ✓ PASS-THROUGH: Destination is internal");
             return Ok(());
         }
 
@@ -174,13 +174,13 @@ impl NatTable {
 
         // Multicast (224.0.0.0 – 239.255.255.255)
         if (224..=239).contains(&dst[0]) {
-            log::warn!("[NAT OUT] SKIP: Multicast packet");
+            //log::warn!("[NAT OUT] SKIP: Multicast packet");
             return Ok(());
         }
 
         // Global broadcast
         if dst == [255, 255, 255, 255] {
-            log::warn!("[NAT OUT] SKIP: Global broadcast");
+            //log::warn!("[NAT OUT] SKIP: Global broadcast");
             return Ok(());
         }
 
@@ -195,15 +195,15 @@ impl NatTable {
         }
 
         if dst == broadcast {
-            log::warn!("[NAT OUT] SKIP LAN broadcast");
+            //log::warn!("[NAT OUT] SKIP LAN broadcast");
             return Ok(());
         }
 
-        log::error!("[NAT OUT] ✓ TRANSLATING...");
+        // log::info!("[NAT OUT] ✓ TRANSLATING...");
 
         let proto = Protocol::from_u8(ctx.ip_hdr.proto).ok_or(())?;
 
-        log::error!("[NAT OUT] ✓ TRANSLATING STEP-2...");
+        // log::info!("[NAT OUT] ✓ TRANSLATING STEP-2...");
 
         // Check if we already have an entry
         if let Some(idx) = self.find_outbound(
@@ -223,29 +223,29 @@ impl NatTable {
 
             // *** CHANGE INTERFACE ***
             if !entry.external_iface.is_null() {
-                log::error!(
-                    "[NAT OUT] ✓ Interface change: {:p} -> {:p} (existing entry)",
-                    ctx.iface,
-                    entry.external_iface
-                );
+                // log::info!(
+                //     "[NAT OUT] ✓ Interface change: {:p} -> {:p} (existing entry)",
+                //     ctx.iface,
+                //     entry.external_iface
+                // );
                 ctx.iface = entry.external_iface;
             }
 
             ctx.needs_update = true;
 
-            log::error!(
-                "[NAT OUT] ✓ Existing entry: {}.{}.{}.{}:{} -> {}.{}.{}.{}:{}",
-                entry.internal_ip[0],
-                entry.internal_ip[1],
-                entry.internal_ip[2],
-                entry.internal_ip[3],
-                entry.internal_port,
-                entry.external_ip[0],
-                entry.external_ip[1],
-                entry.external_ip[2],
-                entry.external_ip[3],
-                entry.external_port
-            );
+            // log::info!(
+            //     "[NAT OUT] ✓ Existing entry: {}.{}.{}.{}:{} -> {}.{}.{}.{}:{}",
+            //     entry.internal_ip[0],
+            //     entry.internal_ip[1],
+            //     entry.internal_ip[2],
+            //     entry.internal_ip[3],
+            //     entry.internal_port,
+            //     entry.external_ip[0],
+            //     entry.external_ip[1],
+            //     entry.external_ip[2],
+            //     entry.external_ip[3],
+            //     entry.external_port
+            // );
 
             return Ok(());
         }
@@ -276,11 +276,11 @@ impl NatTable {
         entry.internal_iface = ctx.orig_iface;
         entry.external_iface = self.config.external_iface;
 
-        log::error!("[NAT OUT] ✓ TRANSLATING STEP-3...");
+        //log::info!("[NAT OUT] ✓ TRANSLATING STEP-3...");
         // Add to table
         self.entries.push(entry).map_err(|_| ())?;
 
-        log::error!("[NAT OUT] ✓ TRANSLATING STEP-4...");
+        //log::info!("[NAT OUT] ✓ TRANSLATING STEP-4...");
 
         // Translate packet
         ctx.ip_hdr.src = external_ip;
@@ -288,32 +288,32 @@ impl NatTable {
 
         // *** CHANGE INTERFACE ***
         if !self.config.external_iface.is_null() {
-            log::info!(
-                "[NAT OUT] ⚡ Interface change: {:p} -> {:p} (new entry)",
-                ctx.iface,
-                self.config.external_iface
-            );
+            // log::info!(
+            //     "[NAT OUT] ⚡ Interface change: {:p} -> {:p} (new entry)",
+            //     ctx.iface,
+            //     self.config.external_iface
+            // );
             ctx.iface = self.config.external_iface;
         } else {
-            log::warn!("[NAT OUT] External interface not configured!");
+            log::error!("[NAT OUT] External interface not configured!");
         }
 
         ctx.needs_update = true;
 
-        log::info!(
-            "[NAT OUT] ✓ New entry: {}.{}.{}.{}:{} -> {}.{}.{}.{}:{} [port {}]",
-            entry.internal_ip[0],
-            entry.internal_ip[1],
-            entry.internal_ip[2],
-            entry.internal_ip[3],
-            entry.internal_port,
-            entry.external_ip[0],
-            entry.external_ip[1],
-            entry.external_ip[2],
-            entry.external_ip[3],
-            entry.external_port,
-            external_port
-        );
+        // log::info!(
+        //     "[NAT OUT] ✓ New entry: {}.{}.{}.{}:{} -> {}.{}.{}.{}:{} [port {}]",
+        //     entry.internal_ip[0],
+        //     entry.internal_ip[1],
+        //     entry.internal_ip[2],
+        //     entry.internal_ip[3],
+        //     entry.internal_port,
+        //     entry.external_ip[0],
+        //     entry.external_ip[1],
+        //     entry.external_ip[2],
+        //     entry.external_ip[3],
+        //     entry.external_port,
+        //     external_port
+        // );
 
         Ok(())
     }
@@ -347,29 +347,29 @@ impl NatTable {
 
         // *** CHANGE INTERFACE ***
         if !entry.internal_iface.is_null() {
-            log::info!(
-                "[NAT IN] ✓ Interface change: {:p} -> {:p}",
-                ctx.iface,
-                entry.internal_iface
-            );
+            // log::info!(
+            //     "[NAT IN] ✓ Interface change: {:p} -> {:p}",
+            //     ctx.iface,
+            //     entry.internal_iface
+            // );
             ctx.iface = entry.internal_iface;
         }
 
         ctx.needs_update = true;
 
-        log::info!(
-            "[NAT IN] ✓ Translated: {}.{}.{}.{}:{} -> {}.{}.{}.{}:{}",
-            entry.external_ip[0],
-            entry.external_ip[1],
-            entry.external_ip[2],
-            entry.external_ip[3],
-            entry.external_port,
-            entry.internal_ip[0],
-            entry.internal_ip[1],
-            entry.internal_ip[2],
-            entry.internal_ip[3],
-            entry.internal_port
-        );
+        // log::info!(
+        //     "[NAT IN] ✓ Translated: {}.{}.{}.{}:{} -> {}.{}.{}.{}:{}",
+        //     entry.external_ip[0],
+        //     entry.external_ip[1],
+        //     entry.external_ip[2],
+        //     entry.external_ip[3],
+        //     entry.external_port,
+        //     entry.internal_ip[0],
+        //     entry.internal_ip[1],
+        //     entry.internal_ip[2],
+        //     entry.internal_ip[3],
+        //     entry.internal_port
+        // );
         Ok(())
     }
 
