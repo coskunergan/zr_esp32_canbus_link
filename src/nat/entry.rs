@@ -4,6 +4,10 @@
 
 use crate::nat::NetIf;
 
+const NAT_TIMEOUT_TCP_MS: u32 = 3_600_000; // 60 dakika = 1 saat
+const NAT_TIMEOUT_UDP_MS: u32 = 180_000; // 3 dakika
+const NAT_TIMEOUT_ICMP_MS: u32 = 60_000; // 1 dakika
+
 /// IP protocol types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -153,7 +157,15 @@ impl NatEntry {
     }
 
     /// Check if entry is expired
-    pub fn is_expired(&self, now: u32, timeout: u32) -> bool {
-        self.in_use && (now - self.last_activity) > timeout
+    pub fn is_expired(&self, now: u32) -> bool {
+        if !self.in_use {
+            return true;
+        }
+        let timeout_ms = match self.protocol {
+            Protocol::Tcp => NAT_TIMEOUT_TCP_MS,
+            Protocol::Udp => NAT_TIMEOUT_UDP_MS,
+            Protocol::Icmp => NAT_TIMEOUT_ICMP_MS,
+        };
+        now.saturating_sub(self.last_activity) > timeout_ms
     }
 }

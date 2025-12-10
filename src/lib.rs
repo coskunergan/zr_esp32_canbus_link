@@ -243,9 +243,9 @@ async fn mg_task(spawner: Spawner) {
 
     loop {
         Timer::after(Duration::from_millis(100)).await;
-        //mg.mg_poll();
-        //mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
-        //mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
+        // mg.mg_poll();
+        // mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
+        // mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
     }
 }
 //====================================================================================

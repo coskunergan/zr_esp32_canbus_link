@@ -8,10 +8,11 @@ use crate::nat::NetIf;
 use crate::packet::PacketContext;
 use heapless::Vec;
 
-const MAX_NAT_ENTRIES: usize = 64;
-const NAT_TIMEOUT_MS: u32 = 30000; // 30sec
+const MAX_NAT_ENTRIES: usize = 128;
 const PORT_RANGE_START: u16 = 50000;
 const PORT_RANGE_END: u16 = 65535;
+
+static mut PEAK_NAT_USAGE: usize = 0;
 
 /// NAT configuration
 pub struct NatConfig {
@@ -67,6 +68,24 @@ impl NatTable {
             next_port: PORT_RANGE_START,
             config: NatConfig::default(),
         }
+    }
+
+    fn update_peak_usage(&mut self) -> usize {
+        let current = self.entries.len();
+
+        unsafe {
+            if current > PEAK_NAT_USAGE {
+                PEAK_NAT_USAGE = current;
+                log::info!(
+                    "[NAT STATS] New Connection: {} / {} (Peak {})",
+                    current,
+                    MAX_NAT_ENTRIES,
+                    PEAK_NAT_USAGE
+                );
+            }
+        }
+
+        current
     }
 
     /// Check if IP is in internal network (should be NAT'd)
@@ -134,7 +153,7 @@ impl NatTable {
     /// Clean up expired entries
     fn cleanup(&mut self) {
         let now = Self::get_uptime();
-        self.entries.retain(|e| !e.is_expired(now, NAT_TIMEOUT_MS));
+        self.entries.retain(|e| !e.is_expired(now));
     }
 
     /// Translate outbound packet (LAN -> WAN)
@@ -300,6 +319,14 @@ impl NatTable {
 
         ctx.needs_update = true;
 
+        let current_usage = self.update_peak_usage();
+        log::info!(
+            "[NAT OUT] Online Connection: {} / {} (Peak: {})",
+            current_usage,
+            MAX_NAT_ENTRIES,
+            unsafe { PEAK_NAT_USAGE }
+        );
+
         // log::info!(
         //     "[NAT OUT] ✓ New entry: {}.{}.{}.{}:{} -> {}.{}.{}.{}:{} [port {}]",
         //     entry.internal_ip[0],
@@ -376,5 +403,11 @@ impl NatTable {
     /// Set NAT configuration (called from C)
     pub fn set_config(&mut self, config: NatConfig) {
         self.config = config;
+        let current = self.entries.len();
+        unsafe {
+            if current > PEAK_NAT_USAGE {
+                PEAK_NAT_USAGE = current;
+            }
+        }
     }
 }
