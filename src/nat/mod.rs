@@ -43,11 +43,8 @@ pub extern "C" fn rust_nat_outbound(pkt: *mut NetPkt) -> i32 {
         Ok(_) => {
             // *** CRITICAL: Only apply if needs_update is true ***
             if ctx.needs_update {
-                //log::info!("[NAT] outbound: Applying changes to packet");
-                ctx.apply_to_pkt(pkt);
-                // unsafe {
-                //     net_try_send_data(pkt, K_TICKS_FOREVER);
-                // }
+                //log::info!("[NAT] outbound: Applying changes to packet");               
+                ctx.apply_to_pkt(pkt);                
                 return 1;
             } else {
                 //log::info!("[NAT] outbound: No changes needed, packet unchanged");

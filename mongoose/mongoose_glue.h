@@ -24,7 +24,7 @@ extern "C" {
 #define WIZARD_ENABLE_SNTP 1  // Enable time sync.
 #define WIZARD_SNTP_TYPE 0    // 0: default Google, 1: DHCP, 2: custom
 #define WIZARD_SNTP_URL "udp://time.google.com:123"  // Custom SNTP server URL
-#define WIZARD_SNTP_INTERVAL_SECONDS 15            // Frequency of SNTP syncs
+#define WIZARD_SNTP_INTERVAL_SECONDS 30            // Frequency of SNTP syncs
 
 #define WIZARD_DNS_TYPE 0  // 0: default Google, 1: DHCP, 2: custom
 #define WIZARD_DNS_URL "udp://8.8.8.8:53"  // Custom DNS server URL

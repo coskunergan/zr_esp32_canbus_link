@@ -4,9 +4,9 @@
 
 use crate::nat::NetIf;
 
-const NAT_TIMEOUT_TCP_MS: u32 = 3_600_000; // 60 dakika = 1 saat
-const NAT_TIMEOUT_UDP_MS: u32 = 180_000; // 3 dakika
-const NAT_TIMEOUT_ICMP_MS: u32 = 60_000; // 1 dakika
+const NAT_TIMEOUT_TCP_MS: u32 = 30_000;
+const NAT_TIMEOUT_UDP_MS: u32 = 30_000; 
+const NAT_TIMEOUT_ICMP_MS: u32 = 30_000;
 
 /// IP protocol types
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

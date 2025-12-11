@@ -151,9 +151,24 @@ impl NatTable {
     }
 
     /// Clean up expired entries
-    fn cleanup(&mut self) {
-        let now = Self::get_uptime();
-        self.entries.retain(|e| !e.is_expired(now));
+    fn cleanup(&mut self) {        
+        let now = Self::get_uptime(); // orj
+        let before = self.entries.len();
+
+        // Expired olmayanlar kalsın
+        self.entries.retain(|e| !e.is_expired(now)); // orj
+
+        let after = self.entries.len();
+        let removed = before - after;
+
+        if removed > 0 {
+            log::error!(
+                "[NAT] cleanup: {} expired entry removed. ({} -> {})",
+                removed,
+                before,
+                after
+            );
+        }
     }
 
     /// Translate outbound packet (LAN -> WAN)
@@ -232,6 +247,7 @@ impl NatTable {
             ctx.dst_port,
             proto,
         ) {
+            //log::error!("[NAT] outbound: VAR olan bir NAT paketi bulundu <<<<<<<");
             // Update existing entry
             let entry = &mut self.entries[idx];
             entry.touch(Self::get_uptime());

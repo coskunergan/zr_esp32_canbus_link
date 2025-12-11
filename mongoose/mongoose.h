@@ -891,7 +891,7 @@ struct timeval
 
 
 #ifndef MG_ENABLE_LOG
-#define MG_ENABLE_LOG 0
+#define MG_ENABLE_LOG 1
 #endif
 
 #ifndef MG_ENABLE_CUSTOM_CALLOC

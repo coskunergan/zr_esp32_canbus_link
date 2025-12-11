@@ -999,7 +999,7 @@ static void sntp_timer(void *param)
 {
     // uint64_t t1 = mg_now(), t2 = mg_millis();
     uint64_t timeout = (WIZARD_SNTP_INTERVAL_SECONDS) * 1000;
-    if (s_sntp_response_received == false) timeout = 1000;
+    //if (s_sntp_response_received == false) timeout = 1000; // bakılacak coskun!!
     // This function is called every second. Once we received a response,
     // trigger SNTP sync less frequently, as set by the define
     if (mg_timer_expired(&s_sntp_timer, timeout, mg_millis()))
@@ -1288,7 +1288,7 @@ void mongoose_init(void)
 void mongoose_poll(void)
 {
     glue_lock();
-    mg_mgr_poll(&g_mgr, 1000);
+    mg_mgr_poll(&g_mgr, 1);
 #if WIZARD_ENABLE_WEBSOCKET
     send_websocket_data();
 #endif

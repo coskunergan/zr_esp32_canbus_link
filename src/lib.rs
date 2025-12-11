@@ -237,15 +237,18 @@ async fn mg_event_task(mg: Mongoose) {
 //====================================================================================
 #[embassy_executor::task]
 async fn mg_task(spawner: Spawner) {
+    let red_led_pin = RED_LED_PIN.get();
     Timer::after(Duration::from_millis(1000)).await;
     let mg = Mongoose::new(spawner);
     spawner.spawn(mg_event_task(mg)).unwrap();
 
-    loop {
+    loop {        
         Timer::after(Duration::from_millis(100)).await;
-        // mg.mg_poll();
-        // mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
-        // mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
+        red_led_pin.set(true);
+        mg.mg_poll();
+        mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
+        mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
+        red_led_pin.set(false);
     }
 }
 //====================================================================================
@@ -326,3 +329,18 @@ extern "C" fn rust_main() {
 //====================================================================================
 //====================================================================================
 //====================================================================================
+
+
+// yapılacaklar ;;
+
+
+//-NAT tablosu dolduysa en eskisi silinerek yenilere yer açılacak.
+//-mg ile beraber çalışmıyorlar bakılacak. (ok)
+
+
+// NAT tablosu acaba her geleni yeni olarak mı oluşturuyor LOG lar ile bakılacak. gereksiz şişme olur!( kontrol edildi kısmen öyle değil gibi görünüyor sorun devam ederse daha detaylı balılabilir.)
+//-mg paketleri NAT yapılmıyor kontrol edildi onaylandı!
+
+
+// sorunu çözdüm sorun SNTP den kaynaklanıyormuş !!! 15 saniyelik döngü 1 sn ye düşmüş ondanmış!!!
+// mg nin tcp bağlantısı AP in bağlantılarını kesiyor! 
