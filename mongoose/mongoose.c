@@ -7955,14 +7955,17 @@ bool mg_ota_end(void)
                     (meta.fw[FW_STM].offset > meta.fw[FW_FLASH].offset)
               )
             {
+                MG_INFO(("STM32 Pre Loader Flashing Start."));
                 ret = stm32_flashing_start(meta.fw[FW_LOADER].offset, meta.fw[FW_LOADER].size, meta.fw[FW_LOADER].target_adr, true);
                 if(ret == 0)
                 {
                     MG_INFO((">>>>>>> STM32 Pre Loader Flashing Succesfly.<<<<<<<<<"));
+                    MG_INFO(("STM32 Ext. FLASH loading start."));
                     ret = stm32_flashing_start(meta.fw[FW_FLASH].offset, meta.fw[FW_FLASH].size, meta.fw[FW_FLASH].target_adr, false);
                     if(ret == 0)
                     {
                         MG_INFO((">>>>>>> Ext. Flashing Succesfly.<<<<<<<<<"));
+                        MG_INFO(("STM32 Flashing start."));
                         ret = stm32_flashing_start(meta.fw[FW_STM].offset, meta.fw[FW_STM].size, meta.fw[FW_STM].target_adr, true);
                         if(ret == 0)
                         {
@@ -8026,18 +8029,22 @@ bool mg_ota_end(void)
                     (meta.fw[FW_STM].offset > meta.fw[FW_FLASH].offset)
               )
             {
+                MG_INFO(("STM32 Pre Loader Flashing Start."));
                 ret = stm32_flashing_start(meta.fw[FW_LOADER].offset, meta.fw[FW_LOADER].size, meta.fw[FW_LOADER].target_adr, true);
                 if(ret == 0)
                 {
                     MG_INFO((">>>>>>> STM32 Pre Loader Flashing Succesfly.<<<<<<<<<"));
+                    MG_INFO(("STM32 Ext. FLASH loading start."));
                     ret = stm32_flashing_start(meta.fw[FW_FLASH].offset, meta.fw[FW_FLASH].size, meta.fw[FW_FLASH].target_adr, false);
                     if(ret == 0)
                     {
                         MG_INFO((">>>>>>> Ext. Flashing Succesfly.<<<<<<<<<"));
+                        MG_INFO(("STM32 Flashing start."));
                         ret = stm32_flashing_start(meta.fw[FW_STM].offset, meta.fw[FW_STM].size, meta.fw[FW_STM].target_adr, true);
                         if(ret == 0)
                         {
                             MG_INFO((">>>>>>> STM32 Flashing Succesfly.<<<<<<<<<"));
+                            MG_INFO(("ESP32 Bootloader start."));
                             ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
                             if (ret)
                             {

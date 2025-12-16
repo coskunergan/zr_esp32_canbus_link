@@ -262,7 +262,7 @@ static int stm32_write_firmware(uint32_t fw_offset, uint32_t fw_size, uint32_t t
 
     if(wait_ack(500) < 0)
     {
-        LOG_ERR("Prapera command ACK failed");
+        LOG_ERR("Prepare command ACK failed");
         flash_area_close(fa);
         return -EIO;
     }
@@ -331,7 +331,7 @@ static int stm32_extended_erase_all(void)
     uart_poll_out(UART_DEV, 0xFF);
     uart_poll_out(UART_DEV, 0xFF);
     uart_poll_out(UART_DEV, 0x00);
-    ret = wait_ack(6000); // ~4.2sn
+    ret = wait_ack(23000); // ~4.2sn
     if(ret < 0) return ret;
     return 0;
 }
@@ -343,7 +343,7 @@ static void stm32_enter_bootloader(void)
     k_msleep(50);
     gpio_pin_set_dt(&nrst, 1);
     LOG_INF("STM32H7 bootloader moduna alındı (BOOT0=1 + reset)");
-    k_msleep(200);
+    k_msleep(300);
 }
 
 static void stm32_exit_bootloader(void)
@@ -353,13 +353,23 @@ static void stm32_exit_bootloader(void)
     k_msleep(50);
     gpio_pin_set_dt(&nrst, 1);
     LOG_INF("STM32H7 bootloader modundan çıkarıldı. (BOOT0=0 + reset)");
-    k_msleep(200);
+    k_msleep(300);
 }
 
 static int stm32_bootloader_sync(void)
 {
     uart_poll_out(UART_DEV, 0x7F);
-    return wait_ack(500);
+    if(wait_ack(500) == 0)
+    {
+        return 0;
+    }
+    uart_poll_out(UART_DEV, 0x7F);
+    if(wait_ack(500) == 0)
+    {
+        return 0;
+    }
+    uart_poll_out(UART_DEV, 0x7F);
+    return wait_ack(500);        
 }
 
 int stm32_flashing_start(uint32_t fw_offset, uint32_t fw_size, uint32_t target_addr, bool boot_start)
