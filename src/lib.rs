@@ -242,13 +242,13 @@ async fn mg_task(spawner: Spawner) {
     let mg = Mongoose::new(spawner);
     spawner.spawn(mg_event_task(mg)).unwrap();
 
-    loop {        
-        Timer::after(Duration::from_millis(100)).await;
-        red_led_pin.set(true);
+    loop {
+        Timer::after(Duration::from_millis(10)).await;
+        red_led_pin.toggle();
         mg.mg_poll();
         mg.set_temperature(TEMP_VAL.load(Ordering::Relaxed) as i32);
         mg.set_humidity(HUMI_VAL.load(Ordering::Relaxed) as i32);
-        red_led_pin.set(false);
+        red_led_pin.toggle();
     }
 }
 //====================================================================================
@@ -331,16 +331,3 @@ extern "C" fn rust_main() {
 //====================================================================================
 
 
-// yapılacaklar ;;
-
-
-//-NAT tablosu dolduysa en eskisi silinerek yenilere yer açılacak.
-//-mg ile beraber çalışmıyorlar bakılacak. (ok)
-
-
-// NAT tablosu acaba her geleni yeni olarak mı oluşturuyor LOG lar ile bakılacak. gereksiz şişme olur!( kontrol edildi kısmen öyle değil gibi görünüyor sorun devam ederse daha detaylı balılabilir.)
-//-mg paketleri NAT yapılmıyor kontrol edildi onaylandı!
-
-
-// sorunu çözdüm sorun SNTP den kaynaklanıyormuş !!! 15 saniyelik döngü 1 sn ye düşmüş ondanmış!!!
-// mg nin tcp bağlantısı AP in bağlantılarını kesiyor! 

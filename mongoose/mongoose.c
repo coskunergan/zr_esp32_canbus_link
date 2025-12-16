@@ -7680,28 +7680,73 @@ bool mg_ota_write(const void *buf, size_t len)
     return true;
 }
 
-#define IMAGE_TLV_INFO_MAGIC  0x6908
-#define IMAGE_TLV_PROT_TYPE   0xA0
-
-//generate cmd;
-//imgtool create  --align 4 --version "1.0.0" --header-size 0x200 --slot-size 0x200000 --pad-header --custom-tlv 0xA0 "STM32" --key root-rsa-2048.pem stm32_binary.bin stm32_binary.signed.bin
-static bool check_device_tlv_is_correct(const char* str)
+enum fw_enum_t
 {
+    FW_ESP = 0,
+    FW_LOADER,
+    FW_FLASH,
+    FW_STM,
+    NUMBER_OF_IMAGES
+};
+
+static const uint16_t tlv_base[] =
+{
+    0xB0, 0xC0, 0xD0, 0xE0
+};
+
+typedef struct
+{
+    uint32_t offset;    // TLV x0
+    uint32_t size;      // TLV x1
+    uint32_t crc32;     // TLV x2
+    uint32_t target_adr;// TLV x3
+} fw_image_meta_t;
+
+typedef struct
+{
+    fw_image_meta_t fw[NUMBER_OF_IMAGES];
+} image_metadata_t;
+
+#define IMAGE_TLV_INFO_MAGIC  0x6908
+#define IMAGE_MAGIC_VALUE 0x96f3b83d
+
+bool check_device_tlv_is_correct(uint8_t* tag, image_metadata_t *meta_data)
+{
+    int ret;
     const struct flash_area *fa;
-    int ret, magic_offset;
-    uint8_t hdr[32];
+    uint8_t hdr[HEADER_READ_SIZE];
+    int magic_offset;
+
+    memset(meta_data, 0, sizeof(*meta_data));
+    if (tag)
+    {
+        tag[0] = '\0';
+    }
 
     ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
-    if (ret) return false;
+    if (ret)
+    {
+        return false;
+    }
 
-    magic_offset = check_magic();
-    if (magic_offset < 0)
+    for(magic_offset = 0; magic_offset < 4096; magic_offset++)
+    {
+        uint32_t v;
+        flash_area_read(fa, magic_offset, &v, sizeof(v));
+        if(v == IMAGE_MAGIC_VALUE)
+        {
+            MG_INFO(("MCUboot MAGIC found at offset %d", magic_offset));
+            break;
+        }
+    }
+
+    if(magic_offset == 4096)
     {
         flash_area_close(fa);
         return false;
     }
 
-    ret = flash_area_read(fa, magic_offset, hdr, 32);
+    ret = flash_area_read(fa, magic_offset, hdr, HEADER_READ_SIZE);
     if (ret)
     {
         flash_area_close(fa);
@@ -7709,26 +7754,25 @@ static bool check_device_tlv_is_correct(const char* str)
     }
 
     uint16_t hdr_size       = GET_LE16(&hdr[0x08]);
-    uint32_t payload_size   = GET_LE32(&hdr[0x0C]);
     uint16_t prot_tlv_size  = GET_LE16(&hdr[0x0A]);
+    uint32_t payload_size   = GET_LE32(&hdr[0x0C]);
 
     MG_INFO(("hdr size: %d", hdr_size));
     MG_INFO(("payload size: %d", payload_size));
     MG_INFO(("prot_tlv_size: %d", prot_tlv_size));
 
     uint32_t tlv_offset = magic_offset + hdr_size + payload_size;
-
     uint16_t tlv_magic;
     flash_area_read(fa, tlv_offset, &tlv_magic, 2);
     if (tlv_magic != IMAGE_TLV_INFO_MAGIC)
     {
-        MG_ERROR(("Protected TLV magic yok: 0x%04x (offset 0x%x)", tlv_magic, tlv_offset));
+        MG_ERROR(("Protected TLV magic not found: 0x%04x (offset 0x%x)", tlv_magic, tlv_offset));
         flash_area_close(fa);
         return false;
     }
 
     uint32_t pos = tlv_offset + 4;
-    uint32_t end = tlv_offset + 4 + prot_tlv_size;
+    uint32_t end = pos + prot_tlv_size;
 
     MG_INFO(("pos: %d", pos));
     MG_INFO(("end: %d", end));
@@ -7739,24 +7783,43 @@ static bool check_device_tlv_is_correct(const char* str)
         uint16_t len;
         flash_area_read(fa, pos + 0, &type, 1);
         flash_area_read(fa, pos + 2, &len, 2);
-
-        if (type == IMAGE_TLV_PROT_TYPE && len == strlen(str))
+        MG_INFO(("tag type: %x", type));
+        MG_INFO(("tag len: %d", len));
+        /* String tag */
+        if (type == 0xA0 && tag && len < 32)
         {
-            char tag[6] = {0};
-            flash_area_read(fa, pos + 4, tag, 5);
-            MG_INFO(("Cihaz etiketi: %s", tag));
-
-            bool correct = (strcmp(tag, str) == 0);
-
-            flash_area_close(fa);
-            return correct;
+            flash_area_read(fa, pos + 4, tag, len);
+            tag[len] = '\0';
+        }
+        else if (len == 4)
+        {
+            uint32_t value;
+            flash_area_read(fa, pos + 4, &value, 4);
+            for (int i = 0; i < NUMBER_OF_IMAGES; i++)
+            {
+                uint8_t base = tlv_base[i];
+                if (type == base)
+                {
+                    meta_data->fw[i].offset = GET_SWAP32(value);
+                }
+                else if (type == base + 1)
+                {
+                    meta_data->fw[i].size = GET_SWAP32(value);
+                }
+                else if (type == base + 2)
+                {
+                    meta_data->fw[i].crc32 = GET_SWAP32(value);
+                }
+                else if (type == base + 3)
+                {
+                    meta_data->fw[i].target_adr = GET_SWAP32(value);
+                }
+            }
         }
         pos += 4 + len;
     }
-
-    MG_ERROR(("0xA0 TLV bulunamadı"));
     flash_area_close(fa);
-    return false;
+    return true;
 }
 
 bool mg_ota_end(void)
@@ -7786,38 +7849,241 @@ bool mg_ota_end(void)
         return false;
     }
 
-    if(check_device_tlv_is_correct("STM32"))
+    image_metadata_t meta;
+    uint8_t tag[32];
+
+    if (check_device_tlv_is_correct(tag, &meta))
     {
-        MG_INFO(("STM32 IMG Downloaded."));
-#ifdef CONFIG_MODBUS_SERIAL
-        extern uint8_t client_iface;
-        modbus_disable(client_iface);
-#endif
-        ret = stm32_flashing_start();
-        ota_in_progress = false;
-        if(ret == 0)
+        MG_INFO(("IMG tag : %s ", tag));
+        for (int i = 0; i < NUMBER_OF_IMAGES; i++)
         {
-            MG_INFO((">>>>>>>STM32 Flashing Succesfly.<<<<<<<<<"));
+            MG_INFO(("FW[%d] offset=0x%08X size=%u crc=0x%08X target=0x%08X",
+                     i,
+                     meta.fw[i].offset,
+                     meta.fw[i].size,
+                     meta.fw[i].crc32,
+                     meta.fw[i].target_adr));
         }
-        else
+
+        //uint8_t partition_buffer[128] = {0, 1, 2, 3, 4};
+        //mg_hexdump(partition_buffer, 128);
+
+        if(strcmp((char *)&tag, "ESP") == 0)
         {
-            MG_ERROR((">>>>>>>>STM32 Flashing FAIL..<<<<<<<<<"));
+            /*
+             =======
+            | HEADER |
+             ========  fw[0].offset           ___
+            | FW[0]  |                         |
+            | ESP32  |                    fw[0].size
+            |        |                         |
+             ========                         ---
+            */
+            ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
+            if (ret)
+            {
+                MG_ERROR(("FW ESP boot request failure !!"));
+                ota_in_progress = false;
+                return false;
+            }
+            k_msleep(500);
+            sys_reboot(1);
         }
+        else if(strcmp((char *)&tag, "STM") == 0)
+        {
+            /*
+             =======
+            | HEADER |
+             ========  fw[3].offset           ___
+            | FW[3]  |                         |
+            | STM32  |                    fw[3].size
+            |        |                         |
+             ========                         ---
+            */
 #ifdef CONFIG_MODBUS_SERIAL
-        sys_reboot(1);
+            extern uint8_t client_iface;
+            modbus_disable(client_iface);
 #endif
+            if((MAX_STM32_FLASH_SIZE > meta.fw[FW_STM].size) && (meta.fw[FW_STM].size > 0))
+            {
+                ret = stm32_flashing_start(meta.fw[FW_STM].offset, meta.fw[FW_STM].size, meta.fw[FW_STM].target_adr, true);
+                if(ret == 0)
+                {
+                    MG_INFO((">>>>>>> STM32 Flashing Succesfly.<<<<<<<<<"));
+                }
+                else
+                {
+                    MG_ERROR((">>>>>>>> STM32 Flashing FAIL ! <<<<<<<<<"));
+                    ota_in_progress = false;
+                    return false;
+                }
+            }
+            else
+            {
+                MG_ERROR(("FW Size not a suitable!!"));
+                ota_in_progress = false;
+                return false;
+            }
+#ifdef CONFIG_MODBUS_SERIAL
+            k_msleep(500);
+            sys_reboot(1);
+#endif
+        }
+        else if(strcmp((char *)&tag, "LOADER+FLASH+STM") == 0)
+        {
+            /*
+             =======
+            | HEADER |
+             ========  fw[1].offset           ___
+            | FW[1]  |                         |
+            | STM32  |                    fw[1].size
+            | LOADER |                         |
+             ========  fw[2].offset           ---
+            | FW[2]  |                         |
+            | EXT.   |                    fw[2].size
+            | FLASH  |                         |
+             ========  fw[3].offset           ---
+            | FW[3]  |                         |
+            | STM32  |                    fw[3].size
+            |   FW   |                         |
+             ========                         _|_
+            */
+            if((MAX_EXT_FLASH_SIZE > meta.fw[FW_FLASH].size) && (meta.fw[FW_FLASH].size > 0) &&
+                    (MAX_STM32_FLASH_SIZE > meta.fw[FW_LOADER].size) && (meta.fw[FW_LOADER].size > 0) &&
+                    (MAX_STM32_FLASH_SIZE > meta.fw[FW_STM].size) && (meta.fw[FW_STM].size > 0) &&
+                    (meta.fw[FW_FLASH].offset > meta.fw[FW_LOADER].offset) &&
+                    (meta.fw[FW_STM].offset > meta.fw[FW_FLASH].offset)
+              )
+            {
+                ret = stm32_flashing_start(meta.fw[FW_LOADER].offset, meta.fw[FW_LOADER].size, meta.fw[FW_LOADER].target_adr, true);
+                if(ret == 0)
+                {
+                    MG_INFO((">>>>>>> STM32 Pre Loader Flashing Succesfly.<<<<<<<<<"));
+                    ret = stm32_flashing_start(meta.fw[FW_FLASH].offset, meta.fw[FW_FLASH].size, meta.fw[FW_FLASH].target_adr, false);
+                    if(ret == 0)
+                    {
+                        MG_INFO((">>>>>>> Ext. Flashing Succesfly.<<<<<<<<<"));
+                        ret = stm32_flashing_start(meta.fw[FW_STM].offset, meta.fw[FW_STM].size, meta.fw[FW_STM].target_adr, true);
+                        if(ret == 0)
+                        {
+                            MG_INFO((">>>>>>> STM32 Flashing Succesfly.<<<<<<<<<"));
+                        }
+                        else
+                        {
+                            MG_ERROR((">>>>>>>> STM32 Flashing FAIL..<<<<<<<<<"));
+                            ota_in_progress = false;
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        MG_ERROR((">>>>>>> Ext. Flashing FAIL ! <<<<<<<<<"));
+                        ota_in_progress = false;
+                        return false;
+                    }
+                }
+                else
+                {
+                    MG_ERROR((">>>>>>> STM32 Pre Loader Flashing FAIL ! <<<<<<<<<"));
+                    ota_in_progress = false;
+                    return false;
+                }
+            }
+            else
+            {
+                MG_ERROR(("Flash FW Size not a suitable!!"));
+                ota_in_progress = false;
+                return false;
+            }
+        }
+        else if(strcmp((char *)&tag, "ESP+LOADER+FLASH+STM") == 0)
+        {
+            /*
+             =======
+            | HEADER |
+             ========  fw[0].offset           ___
+            | FW[0]  |                         |
+            | ESP32  |                    fw[0].size
+            |        |                         |
+             ========  fw[1].offset           ---
+            | FW[1]  |                         |
+            | STM32  |                    fw[1].size
+            | LOADER |                         |
+             ========  fw[2].offset           ---
+            | FW[2]  |                         |
+            | EXT.   |                    fw[2].size
+            | FLASH  |                         |
+             ========  fw[3].offset           ---
+            | FW[3]  |                         |
+            | STM32  |                    fw[3].size
+            |   FW   |                         |
+             ========                         _|_
+            */
+            if((MAX_EXT_FLASH_SIZE > meta.fw[FW_FLASH].size) && (meta.fw[FW_FLASH].size > 0) &&
+                    (MAX_STM32_FLASH_SIZE > meta.fw[FW_LOADER].size) && (meta.fw[FW_LOADER].size > 0) &&
+                    (MAX_STM32_FLASH_SIZE > meta.fw[FW_STM].size) && (meta.fw[FW_STM].size > 0) &&
+                    (meta.fw[FW_FLASH].offset > meta.fw[FW_LOADER].offset) &&
+                    (meta.fw[FW_STM].offset > meta.fw[FW_FLASH].offset)
+              )
+            {
+                ret = stm32_flashing_start(meta.fw[FW_LOADER].offset, meta.fw[FW_LOADER].size, meta.fw[FW_LOADER].target_adr, true);
+                if(ret == 0)
+                {
+                    MG_INFO((">>>>>>> STM32 Pre Loader Flashing Succesfly.<<<<<<<<<"));
+                    ret = stm32_flashing_start(meta.fw[FW_FLASH].offset, meta.fw[FW_FLASH].size, meta.fw[FW_FLASH].target_adr, false);
+                    if(ret == 0)
+                    {
+                        MG_INFO((">>>>>>> Ext. Flashing Succesfly.<<<<<<<<<"));
+                        ret = stm32_flashing_start(meta.fw[FW_STM].offset, meta.fw[FW_STM].size, meta.fw[FW_STM].target_adr, true);
+                        if(ret == 0)
+                        {
+                            MG_INFO((">>>>>>> STM32 Flashing Succesfly.<<<<<<<<<"));
+                            ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
+                            if (ret)
+                            {
+                                MG_ERROR(("FW ESP boot request failure !!"));
+                                ota_in_progress = false;
+                                return false;
+                            }
+                            k_msleep(500);
+                            sys_reboot(1);
+                        }
+                        else
+                        {
+                            MG_ERROR((">>>>>>>> STM32 Flashing FAIL..<<<<<<<<<"));
+                            ota_in_progress = false;
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        MG_ERROR((">>>>>>> Ext. Flashing FAIL ! <<<<<<<<<"));
+                        ota_in_progress = false;
+                        return false;
+                    }
+                }
+                else
+                {
+                    MG_ERROR((">>>>>>> STM32 Pre Loader Flashing FAIL ! <<<<<<<<<"));
+                    ota_in_progress = false;
+                    return false;
+                }
+            }
+            else
+            {
+                MG_ERROR(("Flash FW Size not a suitable!!"));
+                ota_in_progress = false;
+                return false;
+            }
+        }
     }
     else
     {
-        ret = boot_request_upgrade(BOOT_UPGRADE_TEST);
+        MG_ERROR(("Flash FW Size not a suitable!!"));
         ota_in_progress = false;
-        if (ret)
-        {
-            return false;
-        }
-        sys_reboot(1);
+        return false;
     }
-
+    ota_in_progress = false;
     return true;
 }
 #endif

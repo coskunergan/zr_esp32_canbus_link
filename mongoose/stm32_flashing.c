@@ -168,67 +168,13 @@ static int stm32_write_memory(uint32_t address, const uint8_t *data, uint32_t le
     return 0;
 }
 
-int check_magic()
+
+static int stm32_verify_firmware(uint32_t fw_offset, uint32_t fw_size, uint32_t target_addr)
 {
     const struct flash_area *fa;
-    flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
 
-    for(int i = 0; i < 4096; i++)
-    {
-        uint32_t v;
-        flash_area_read(fa, i, &v, sizeof(v));
-        if(v == 0x96f3b83d)
-        {
-            flash_area_close(fa);
-            LOG_INF("MCUboot MAGIC found at offset %d", i);
-            return i;
-        }
-    }
-
-    flash_area_close(fa);
-    return -1;
-}
-
-size_t get_mcuboot_img_payload_size()
-{
-    const struct flash_area *fa;
-    int ret;
-    uint8_t header_buf[HEADER_READ_SIZE];
-    uint32_t firmware_len = 0;
-
-    ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
-    if(ret != 0)
-    {
-        LOG_ERR("Hata: Flash alanına erişilemiyor. Kod: %d", ret);
-        return 0;
-    }
-
-    int magic_offset = check_magic();
-    if(magic_offset < 0)
-    {
-        return -1;
-    }
-
-    ret = flash_area_read(fa, magic_offset, header_buf, HEADER_READ_SIZE);
-    flash_area_close(fa);
-
-    // LOG_HEXDUMP_INF(header_buf, HEADER_READ_SIZE, "Header Buffer");
-
-    if(ret != 0)
-    {
-        LOG_ERR("Hata: Flash başlık okuma başarısız. Kod: %d", ret);
-        return 0;
-    }
-    firmware_len = GET_LE32(&header_buf[IMG_SIZE_OFFSET]);
-
-    return (size_t)firmware_len;
-}
-
-static int stm32_verify_firmware(uint32_t fw_size)
-{
     LOG_INF("Firmware doğrulaması başlıyor...");
 
-    const struct flash_area *fa;
     int ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
     if(ret < 0)
     {
@@ -239,7 +185,6 @@ static int stm32_verify_firmware(uint32_t fw_size)
     uint8_t partition_buffer[WRITE_CHUNK_SIZE];
     uint8_t stm32_buffer[WRITE_CHUNK_SIZE];
     uint32_t offset = 0;
-    uint32_t stm32_address = STM32_FLASH_BASE;
     uint32_t last_log_offset = 0;
     uint32_t mismatch_count = 0;
 
@@ -247,7 +192,7 @@ static int stm32_verify_firmware(uint32_t fw_size)
     {
         uint32_t chunk_size = MIN(WRITE_CHUNK_SIZE, fw_size - offset);
 
-        ret = flash_area_read(fa, offset + TLV_IMG_HEADER_SIZE, partition_buffer, chunk_size);
+        ret = flash_area_read(fa, fw_offset + offset, partition_buffer, chunk_size);
         if(ret < 0)
         {
             LOG_ERR("Partition okuma başarısız (offset: %u): %d", offset, ret);
@@ -255,10 +200,10 @@ static int stm32_verify_firmware(uint32_t fw_size)
             return ret;
         }
 
-        ret = stm32_read_memory(stm32_address, stm32_buffer, chunk_size);
+        int ret = stm32_read_memory(target_addr, stm32_buffer, chunk_size);
         if(ret < 0)
         {
-            LOG_ERR("STM32 okuma başarısız (adres: 0x%08X): %d", stm32_address, ret);
+            LOG_ERR("STM32 okuma başarısız (adres: 0x%08X): %d", target_addr, ret);
             flash_area_close(fa);
             return ret;
         }
@@ -269,12 +214,12 @@ static int stm32_verify_firmware(uint32_t fw_size)
             {
                 mismatch_count++;
                 LOG_WRN("Veri uyuşmazlığı - Adres: 0x%08X, Beklenen: 0x%02X, Okunan: 0x%02X",
-                        stm32_address + i, partition_buffer[i], stm32_buffer[i]);
+                        target_addr + i, partition_buffer[i], stm32_buffer[i]);
             }
         }
 
         offset += chunk_size;
-        stm32_address += chunk_size;
+        target_addr += chunk_size;
 
         if(offset - last_log_offset >= 1024 * 5)
         {
@@ -283,7 +228,6 @@ static int stm32_verify_firmware(uint32_t fw_size)
             last_log_offset = offset;
         }
     }
-
     flash_area_close(fa);
 
     if(mismatch_count == 0)
@@ -298,19 +242,20 @@ static int stm32_verify_firmware(uint32_t fw_size)
     }
 }
 
-static int stm32_write_firmware(void)
+static int stm32_write_firmware(uint32_t fw_offset, uint32_t fw_size, uint32_t target_addr)
 {
+    const struct flash_area *fa;
+
     LOG_INF("Firmware yazma işlemi başlıyor...");
 
-    uint32_t fw_size = get_mcuboot_img_payload_size();
+    int ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
+    if(ret < 0)
+    {
+        LOG_ERR("Partition açma başarısız: %d", ret);
+        return ret;
+    }
 
     LOG_INF("Partition boyutu: %u bytes (%.1f KB)", fw_size, fw_size / 1024.0);
-
-    if(MAX_FLASH_SIZE < fw_size || fw_size == 0)
-    {
-        LOG_ERR("Partition hafıza boş yada çok büyük.");
-        return -1;
-    }
 
     uart_poll_out(UART_DEV, 0x44);
     uart_poll_out(UART_DEV, 0xBB);
@@ -318,6 +263,7 @@ static int stm32_write_firmware(void)
     if(wait_ack(500) < 0)
     {
         LOG_ERR("Prapera command ACK failed");
+        flash_area_close(fa);
         return -EIO;
     }
 
@@ -330,20 +276,12 @@ static int stm32_write_firmware(void)
     if(wait_ack(2500) < 0)
     {
         LOG_ERR("Prapera write command ACK failed");
+        flash_area_close(fa);
         return -EIO;
-    }
-
-    const struct flash_area *fa;
-    int ret = flash_area_open(FIXED_PARTITION_ID(slot1_partition), &fa);
-    if(ret < 0)
-    {
-        LOG_ERR("Partition açma başarısız: %d", ret);
-        return ret;
     }
 
     uint8_t buffer[WRITE_CHUNK_SIZE];
     uint32_t offset = 0;
-    uint32_t stm32_address = STM32_FLASH_BASE;
     uint32_t total_written = 0;
     uint32_t last_log_offset = 0;
 
@@ -351,24 +289,24 @@ static int stm32_write_firmware(void)
     {
         uint32_t chunk_size = MIN(WRITE_CHUNK_SIZE, fw_size - offset);
 
-        ret = flash_area_read(fa, offset + TLV_IMG_HEADER_SIZE, buffer, chunk_size);
+        ret = flash_area_read(fa, fw_offset + offset, buffer, chunk_size);
         if(ret < 0)
         {
-            LOG_ERR("Flash okuma başarısız (offset: %u): %d", offset, ret);
+            LOG_ERR("Partition okuma başarısız (offset: %u): %d", offset, ret);
             flash_area_close(fa);
             return ret;
         }
 
-        ret = stm32_write_memory(stm32_address, buffer, chunk_size);
+        int ret = stm32_write_memory(target_addr, buffer, chunk_size);
         if(ret < 0)
         {
-            LOG_ERR("STM32 yazma başarısız (adres: 0x%08X): %d", stm32_address, ret);
+            LOG_ERR("STM32 yazma başarısız (adres: 0x%08X): %d", target_addr, ret);
             flash_area_close(fa);
             return ret;
         }
 
         offset += chunk_size;
-        stm32_address += chunk_size;
+        target_addr += chunk_size;
         total_written += chunk_size;
 
         if(offset - last_log_offset >= 1024 * 5)
@@ -380,7 +318,6 @@ static int stm32_write_firmware(void)
     }
 
     flash_area_close(fa);
-
     LOG_INF("Firmware yazma tamamlandı! Toplam: %u bytes", total_written);
     return 0;
 }
@@ -405,8 +342,8 @@ static void stm32_enter_bootloader(void)
     gpio_pin_set_dt(&nrst, 0);
     k_msleep(50);
     gpio_pin_set_dt(&nrst, 1);
-    k_msleep(200);
     LOG_INF("STM32H7 bootloader moduna alındı (BOOT0=1 + reset)");
+    k_msleep(200);
 }
 
 static void stm32_exit_bootloader(void)
@@ -415,8 +352,8 @@ static void stm32_exit_bootloader(void)
     gpio_pin_set_dt(&nrst, 0);
     k_msleep(50);
     gpio_pin_set_dt(&nrst, 1);
-    k_msleep(200);
     LOG_INF("STM32H7 bootloader modundan çıkarıldı. (BOOT0=0 + reset)");
+    k_msleep(200);
 }
 
 static int stm32_bootloader_sync(void)
@@ -425,7 +362,7 @@ static int stm32_bootloader_sync(void)
     return wait_ack(500);
 }
 
-int stm32_flashing_start(void)
+int stm32_flashing_start(uint32_t fw_offset, uint32_t fw_size, uint32_t target_addr, bool boot_start)
 {
     struct uart_config cfg =
     {
@@ -439,13 +376,7 @@ int stm32_flashing_start(void)
     int ret = uart_configure(uart_dev, &cfg);
     if(ret)
     {
-        printk("UART configure error: %d\n", ret);
-    }
-
-    if(check_magic() < 0)
-    {
-        LOG_ERR("IMG file bulunamadı!.");
-        return -1;
+        LOG_ERR("UART configure error: %d\n", ret);
     }
 
     LOG_WRN("ESP32-C6 → STM32H7 UART Flasher başladı");
@@ -454,7 +385,7 @@ int stm32_flashing_start(void)
     if(ret < 0)
     {
         LOG_ERR("BOOT0 configure failed: %d", ret);
-        return -ret;
+        return ret;
     }
 
     ret = gpio_pin_configure_dt(&nrst, GPIO_OUTPUT_HIGH);
@@ -464,9 +395,17 @@ int stm32_flashing_start(void)
         return ret;
     }
 
-    stm32_enter_bootloader();
+    if(boot_start)
+    {
+        stm32_enter_bootloader();
+    }
+    else
+    {
+        stm32_exit_bootloader();
+    }
 
-    if(stm32_bootloader_sync() != 0)
+    ret = stm32_bootloader_sync();
+    if(ret != 0)
     {
         LOG_ERR("Sync başarısız, kablolama/boot pinlerini kontrol et");
         stm32_exit_bootloader();
@@ -484,7 +423,7 @@ int stm32_flashing_start(void)
     }
     LOG_INF("Tüm Flash başarıyla silindi!");
 
-    ret = stm32_write_firmware();
+    ret = stm32_write_firmware(fw_offset, fw_size, target_addr);
     if(ret < 0)
     {
         LOG_ERR("Firmware yazma başarısız!");
@@ -493,7 +432,7 @@ int stm32_flashing_start(void)
     }
 
     LOG_INF("Yazma işlemi bitti, doğrulama başlıyor...");
-    ret = stm32_verify_firmware(get_mcuboot_img_payload_size());
+    ret = stm32_verify_firmware(fw_offset, fw_size, target_addr);
     if(ret < 0)
     {
         LOG_ERR("Doğrulama başarısız!");
